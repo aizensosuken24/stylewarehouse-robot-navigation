@@ -1,0 +1,7 @@
+{
+  "app_title": "స్టైల్‌వేర్ రోబోట్ నావిగేషన్",
+  "pygame_missing": "pygame ఇన్‌స్టాల్ చేయబడలేదు: pip install pygame",
+  "step_info": "దశ {step}/{total}  స్థానము={pos}",
+  "terminal_fallback": "టెర్మినల్‌కుFallback.",
+  "generate_error_no_ai": "ఏఐ బ్యాక్‌ఎండ్ అందుబాటులో లేదు."
+}

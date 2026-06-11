@@ -1,0 +1,7 @@
+{
+  "app_title": "स्टाइलवेयर रोबॉट नेविगेशन",
+  "pygame_missing": "pygame इंस्टॉल नहीं है।: pip install pygame",
+  "step_info": "चरण {step}/{total}  स्थिति={pos}",
+  "terminal_fallback": "टर्मिनल पर गिरावट।",
+  "generate_error_no_ai": "कोई एआई बैकएंड उपलब्ध नहीं।"
+}
