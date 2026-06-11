@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StyleWarehouse — Robot Navigation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <span class="logo-icon">⬡</span>
+      <span>StyleWarehouse <em>NAV</em></span>
+    </div>
+    <div class="status-pill" id="apiStatus">
+      <span class="dot"></span> Backend offline
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-text">
+      <p class="eyebrow">Warehouse Path Planning</p>
+      <h1>Shortest route,<br/><span class="accent">zero wasted steps.</span></h1>
+      <p class="sub">Set a start and end point on the grid, configure your robot, and let the algorithm find the optimal path through your warehouse layout.</p>
+    </div>
+    <div class="hero-badge">
+      <span class="badge-num" id="heroSteps">—</span>
+      <span class="badge-label">steps in last path</span>
+    </div>
+  </section>
+
+  <!-- MAIN GRID -->
+  <main>
+
+    <!-- LEFT: CONTROLS -->
+    <aside class="controls-panel">
+
+      <div class="panel-section">
+        <h2>Grid Setup</h2>
+        <label>Rows
+          <input type="number" id="rows" value="10" min="5" max="30" />
+        </label>
+        <label>Columns
+          <input type="number" id="cols" value="10" min="5" max="30" />
+        </label>
+        <button class="btn-secondary" id="btnReset">Reset Grid</button>
+      </div>
+
+      <div class="panel-section">
+        <h2>Waypoints</h2>
+        <label>Start (row, col)
+          <div class="coord-pair">
+            <input type="number" id="startRow" value="0" min="0" placeholder="Row" />
+            <input type="number" id="startCol" value="0" min="0" placeholder="Col" />
+          </div>
+        </label>
+        <label>End (row, col)
+          <div class="coord-pair">
+            <input type="number" id="endRow" value="9" min="0" placeholder="Row" />
+            <input type="number" id="endCol" value="9" min="0" placeholder="Col" />
+          </div>
+        </label>
+      </div>
+
+      <div class="panel-section">
+        <h2>Algorithm</h2>
+        <label>Path planner
+          <select id="algorithm">
+            <option value="astar">A* (recommended)</option>
+            <option value="dijkstra">Dijkstra</option>
+            <option value="bfs">BFS</option>
+          </select>
+        </label>
+        <label class="toggle-label">
+          <input type="checkbox" id="allowDiagonal" />
+          Allow diagonal movement
+        </label>
+      </div>
+
+      <div class="panel-section">
+        <h2>Backend API</h2>
+        <label>URL
+          <input type="text" id="apiUrl" placeholder="https://your-api.render.com" />
+        </label>
+        <button class="btn-ghost" id="btnPing">Ping</button>
+      </div>
+
+      <button class="btn-primary" id="btnRun">
+        <span>Find Path</span>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+    </aside>
+
+    <!-- CENTER: GRID -->
+    <section class="grid-section">
+      <div class="grid-toolbar">
+        <span class="tool-label">Click cells to toggle obstacles</span>
+        <div class="legend">
+          <span class="leg-item"><span class="leg-box start"></span>Start</span>
+          <span class="leg-item"><span class="leg-box end"></span>End</span>
+          <span class="leg-item"><span class="leg-box obstacle"></span>Obstacle</span>
+          <span class="leg-item"><span class="leg-box path"></span>Path</span>
+        </div>
+      </div>
+      <div class="grid-wrapper">
+        <div class="grid-canvas" id="gridCanvas"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: OUTPUT -->
+    <aside class="output-panel">
+
+      <div class="stat-card">
+        <span class="stat-val" id="statSteps">—</span>
+        <span class="stat-label">Steps</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val" id="statCost">—</span>
+        <span class="stat-label">Total Cost</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val" id="statTime">—</span>
+        <span class="stat-label">Compute (ms)</span>
+      </div>
+
+      <div class="panel-section">
+        <h2>Path Sequence</h2>
+        <div class="path-list" id="pathList">
+          <p class="muted">No path computed yet.</p>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h2>API Response</h2>
+        <pre class="json-box" id="jsonBox">{ }</pre>
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
