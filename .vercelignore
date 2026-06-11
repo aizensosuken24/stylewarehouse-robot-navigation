@@ -1,0 +1,22 @@
+# Vercel Deployment Ignore
+# Exclude unnecessary files from Vercel deployment
+
+.git
+.gitignore
+.env.local
+.env.*.local
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+.vscode
+.idea
+node_modules
+.DS_Store
+tests
+*.md
+!README.md
+Speckit
+run_tests.sh

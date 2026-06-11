@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StyleWarehouse Robot Navigation</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 StyleWarehouse Robot Navigation</h1>
+            <p class="subtitle">Intelligent warehouse order fulfillment simulation</p>
+            <div class="status-bar">
+                <span id="health-status" class="status-indicator">● Checking...</span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Catalogue Search Section -->
+            <section class="section catalogue-section">
+                <h2>📦 Product Catalogue</h2>
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="Search products (e.g., 'tee', 'hoodie')..."
+                        class="search-input"
+                    >
+                    <button id="search-btn" class="btn btn-primary">Search</button>
+                    <button id="clear-btn" class="btn btn-secondary">Clear</button>
+                </div>
+                <div id="catalogue-results" class="catalogue-grid">
+                    <div class="loading">Loading catalogue...</div>
+                </div>
+            </section>
+
+            <!-- Order Simulation Section -->
+            <section class="section order-section">
+                <h2>🛒 Order Simulation</h2>
+                <div class="order-controls">
+                    <button id="demo-btn" class="btn btn-success">📊 Load Demo Order</button>
+                    <button id="simulate-btn" class="btn btn-primary">▶ Simulate Order</button>
+                    <button id="clear-order-btn" class="btn btn-secondary">🗑 Clear Order</button>
+                </div>
+                
+                <div class="order-display">
+                    <div class="order-items">
+                        <h3>Selected Items</h3>
+                        <div id="order-list" class="order-list">
+                            <p class="empty-state">No items selected</p>
+                        </div>
+                    </div>
+                    
+                    <div class="order-summary">
+                        <h3>Order Summary</h3>
+                        <div id="order-summary" class="summary-content">
+                            <p>Select items to see summary</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Visualization Section -->
+            <section class="section visualization-section">
+                <h2>🗺 Warehouse Visualization</h2>
+                <div class="viz-container">
+                    <div class="canvas-wrapper">
+                        <canvas id="warehouse-canvas" width="800" height="600"></canvas>
+                        <div class="canvas-legend">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #FF6B6B;"></span>
+                                <span>Start Position</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #4ECDC4;"></span>
+                                <span>Robot</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #FFE66D;"></span>
+                                <span>Item Location</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #95E1D3;"></span>
+                                <span>Path</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="sim-info">
+                        <div class="info-card">
+                            <h4>Simulation Stats</h4>
+                            <div class="stat">
+                                <span class="label">Total Distance:</span>
+                                <span id="stat-distance" class="value">-</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Items Collected:</span>
+                                <span id="stat-items" class="value">-</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Waypoints:</span>
+                                <span id="stat-waypoints" class="value">-</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Algorithm:</span>
+                                <span id="stat-algorithm" class="value">A* + TSP</span>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <h4>Pathfinding Details</h4>
+                            <div id="pathfinding-details" class="details-content">
+                                <p class="empty-state">Run simulation to see details</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Response Details Section -->
+            <section class="section response-section">
+                <h2>📋 Response Data</h2>
+                <div class="response-container">
+                    <pre id="response-data" class="response-display">Ready for simulation...</pre>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>StyleWarehouse Robot Navigation • Powered by A* Pathfinding & TSP Optimization</p>
+        </footer>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/visualizer.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
