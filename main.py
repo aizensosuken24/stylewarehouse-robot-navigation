@@ -1,207 +1,191 @@
 #!/usr/bin/env python3
-"""
-main.py — StyleWarehouse Robot Navigation Demo
-================================================
-Runs an interactive simulation of the warehouse robot.
-
-Usage:
-    python main.py                  # interactive mode
-    python main.py --auto           # auto-demo with sample order
-    python main.py --pygame         # use pygame visualiser (requires: pip install pygame)
-"""
+"""StyleWarehouse robot navigation demo entrypoint."""
 from __future__ import annotations
-import sys, os, argparse
 
-# Make src importable
+import argparse
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
 
-from src.warehouse.map import build_default_map
-from src.warehouse.catalogue import ItemCatalogue
-from src.robot.robot import Robot
-from src.robot.order import Order
-from src.ui.visualiser import print_map, animate_path, animate_pygame
+from config import ALGORITHM, CATALOGUE_FILE, DEPOT_POSITION
 from src.navigation.pathfinder import find_path
-from config import DEPOT_POSITION, CATALOGUE_FILE, ALGORITHM
+from src.robot.order import Order
+from src.robot.robot import Robot
+from src.ui.visualiser import animate_path, animate_pygame, print_map
+from src.utils.output import safe_print
+from src.warehouse.catalogue import ItemCatalogue
+from src.warehouse.map import build_default_map
 
-
-# ── Setup ─────────────────────────────────────────────────────────────────────
-
-def load_system():
-    """Load warehouse map and item catalogue."""
-    wm = build_default_map()
-
-    cat = ItemCatalogue()
-    if os.path.exists(CATALOGUE_FILE):
-        cat.load_from_csv(CATALOGUE_FILE)
-    else:
-        print(f"⚠ Catalogue not found at {CATALOGUE_FILE} — using empty catalogue")
-
-    return wm, cat
-
-
-# ── Demo order ────────────────────────────────────────────────────────────────
 
 DEMO_ORDER = [
-    ("SW001", 1),   # Classic Tee
-    ("SW007", 1),   # Slim Jeans
-    ("SW013", 1),   # Bomber Jacket
-    ("SW021", 1),   # Canvas Sneaker
-    ("SW033", 1),   # Woollen Scarf
+    ("SW001", 1),
+    ("SW007", 1),
+    ("SW013", 1),
+    ("SW021", 1),
+    ("SW033", 1),
 ]
 
 
-# ── Interactive mode ──────────────────────────────────────────────────────────
+def load_system():
+    """Load the warehouse map and item catalogue."""
+    warehouse_map = build_default_map()
+    catalogue = ItemCatalogue()
 
-def interactive(wm, cat, robot, use_pygame: bool = False):
-    print("\n" + "="*55)
-    print("  🤖  StyleWarehouse Robot Navigation System")
-    print("="*55)
-    print(f"  Warehouse : {wm.rows} × {wm.cols} grid")
-    print(f"  Catalogue : {len(cat)} items")
-    print(f"  Algorithm : {ALGORITHM.upper()}")
-    print(f"  Robot     : {robot.name}  @ depot {DEPOT_POSITION}")
-    print("="*55)
+    if os.path.exists(CATALOGUE_FILE):
+        catalogue.load_from_csv(CATALOGUE_FILE)
+    else:
+        safe_print(f"[!] Catalogue not found at {CATALOGUE_FILE} - using empty catalogue")
 
-    print_map(wm, robot_pos=robot.position, title="Initial Warehouse State")
+    return warehouse_map, catalogue
+
+
+def interactive(warehouse_map, catalogue, robot, use_pygame: bool = False):
+    safe_print("\n" + "=" * 55)
+    safe_print("  [BOT] StyleWarehouse Robot Navigation System")
+    safe_print("=" * 55)
+    safe_print(f"  Warehouse : {warehouse_map.rows} x {warehouse_map.cols} grid")
+    safe_print(f"  Catalogue : {len(catalogue)} items")
+    safe_print(f"  Algorithm : {ALGORITHM.upper()}")
+    safe_print(f"  Robot     : {robot.name} @ depot {DEPOT_POSITION}")
+    safe_print("=" * 55)
+
+    print_map(warehouse_map, robot_pos=robot.position, title="Initial Warehouse State")
 
     while True:
-        print("\nOptions:")
-        print("  1. Place a new order")
-        print("  2. Show warehouse map")
-        print("  3. Search catalogue")
-        print("  4. Show robot status")
-        print("  5. Run demo order")
-        print("  0. Exit")
+        safe_print("\nOptions:")
+        safe_print("  1. Place a new order")
+        safe_print("  2. Show warehouse map")
+        safe_print("  3. Search catalogue")
+        safe_print("  4. Show robot status")
+        safe_print("  5. Run demo order")
+        safe_print("  0. Exit")
         choice = input("\nEnter choice: ").strip()
 
         if choice == "0":
-            print("Goodbye! 👋")
+            safe_print("Goodbye!")
             break
 
-        elif choice == "1":
+        if choice == "1":
             order_id = input("Order ID (e.g. ORD-001): ").strip() or "ORD-001"
             order = Order(order_id)
-            print("Enter SKUs to pick (blank line to finish):")
+            safe_print("Enter SKUs to pick (blank line to finish):")
             while True:
                 sku = input("  SKU: ").strip().upper()
                 if not sku:
                     break
                 qty_str = input("  Qty [1]: ").strip()
-                qty = int(qty_str) if qty_str.isdigit() else 1
-                order.add_item(sku, qty)
+                quantity = int(qty_str) if qty_str.isdigit() else 1
+                order.add_item(sku, quantity)
 
             if not order.lines:
-                print("No items added.")
+                safe_print("No items added.")
                 continue
 
-            print(f"\nExecuting {order}")
-            success = robot.execute_order(order, verbose=True)
+            safe_print(f"\nExecuting {order}")
+            robot.execute_order(order, verbose=True)
             if use_pygame:
-                _show_pygame_for_order(wm, robot, order, cat)
+                _show_pygame_for_order(warehouse_map, robot, order, catalogue)
+            continue
 
-        elif choice == "2":
-            print_map(wm, robot_pos=robot.position)
+        if choice == "2":
+            print_map(warehouse_map, robot_pos=robot.position)
+            continue
 
-        elif choice == "3":
-            kw = input("Search keyword: ").strip()
-            results = cat.search_by_name(kw)
+        if choice == "3":
+            keyword = input("Search keyword: ").strip()
+            results = catalogue.search_by_name(keyword)
             if results:
                 for item in results:
-                    print(f"  {item}")
+                    safe_print(f"  {item}")
             else:
-                print("  No results.")
+                safe_print("  No results.")
+            continue
 
-        elif choice == "4":
-            print(robot.status())
+        if choice == "4":
+            safe_print(robot.status())
+            continue
 
-        elif choice == "5":
+        if choice == "5":
             order = Order("DEMO-001", DEMO_ORDER)
-            print(f"\nRunning demo order: {[s for s,_ in DEMO_ORDER]}")
+            safe_print(f"\nRunning demo order: {[sku for sku, _ in DEMO_ORDER]}")
             robot.execute_order(order, verbose=True)
-
-            # Show path visualisation
             if use_pygame:
-                _show_pygame_for_order(wm, robot, order, cat)
+                _show_pygame_for_order(warehouse_map, robot, order, catalogue)
             else:
-                _show_terminal_animation(wm, robot, order, cat)
+                _show_terminal_animation(warehouse_map, order, catalogue)
+            continue
 
-        else:
-            print("Invalid choice.")
+        safe_print("Invalid choice.")
 
 
-def _show_terminal_animation(wm, robot, order, cat):
-    """Replay the robot's path in the terminal for each picked SKU."""
-    from config import DEPOT_POSITION
+def _show_terminal_animation(warehouse_map, order, catalogue):
+    """Replay the robot path in the terminal for the selected order."""
     positions = [DEPOT_POSITION]
-    for sku in [s for s,_ in DEMO_ORDER]:
-        item = cat.find(sku)
+    for sku in order.picked_skus() or [sku for sku, _ in DEMO_ORDER]:
+        item = catalogue.find(sku)
         if item:
             positions.append(item.location)
     positions.append(DEPOT_POSITION)
 
-    # Build full path
     full_path = [positions[0]]
-    for i in range(len(positions)-1):
-        segment = find_path(wm, positions[i], positions[i+1], ALGORITHM)
+    for index in range(len(positions) - 1):
+        segment = find_path(warehouse_map, positions[index], positions[index + 1], ALGORITHM)
         if segment:
             full_path.extend(segment[1:])
 
-    animate_path(wm, full_path, delay=0.05, title="Robot Route Animation")
+    animate_path(warehouse_map, full_path, delay=0.05, title="Robot Route Animation")
 
 
-def _show_pygame_for_order(wm, robot, order, cat):
-    """Animate demo path in pygame."""
-    from config import DEPOT_POSITION
+def _show_pygame_for_order(warehouse_map, robot, order, catalogue):
+    """Animate the path for a completed order in pygame."""
     positions = [DEPOT_POSITION]
     for sku in order.picked_skus():
-        item = cat.find(sku)
+        item = catalogue.find(sku)
         if item:
             positions.append(item.location)
     positions.append(DEPOT_POSITION)
 
     full_path = [positions[0]]
-    for i in range(len(positions)-1):
-        segment = find_path(wm, positions[i], positions[i+1], ALGORITHM)
+    for index in range(len(positions) - 1):
+        segment = find_path(warehouse_map, positions[index], positions[index + 1], ALGORITHM)
         if segment:
             full_path.extend(segment[1:])
 
-    animate_pygame(wm, full_path)
+    animate_pygame(warehouse_map, full_path)
 
 
-# ── Auto demo ─────────────────────────────────────────────────────────────────
-
-def auto_demo(wm, cat, use_pygame: bool = False):
-    robot = Robot("AutoBot", wm, cat)
+def auto_demo(warehouse_map, catalogue, use_pygame: bool = False):
+    """Run the non-interactive demo order."""
+    robot = Robot("AutoBot", warehouse_map, catalogue)
     order = Order("AUTO-001", DEMO_ORDER)
 
-    print("\n" + "="*55)
-    print("  🤖  StyleWarehouse — Auto Demo")
-    print("="*55)
-    print_map(wm, title="Warehouse Layout")
+    safe_print("\n" + "=" * 55)
+    safe_print("  [BOT] StyleWarehouse - Auto Demo")
+    safe_print("=" * 55)
+    print_map(warehouse_map, title="Warehouse Layout")
 
     robot.execute_order(order, verbose=True)
 
     if use_pygame:
-        _show_pygame_for_order(wm, robot, order, cat)
+        _show_pygame_for_order(warehouse_map, robot, order, catalogue)
     else:
-        _show_terminal_animation(wm, robot, order, cat)
+        _show_terminal_animation(warehouse_map, order, catalogue)
 
-
-# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="StyleWarehouse Robot Navigation")
-    parser.add_argument("--auto",   action="store_true", help="Run auto demo and exit")
+    parser.add_argument("--auto", action="store_true", help="Run auto demo and exit")
     parser.add_argument("--pygame", action="store_true", help="Use pygame visualiser")
     args = parser.parse_args()
 
-    wm, cat = load_system()
-    robot   = Robot("StyleBot-1", wm, cat)
+    warehouse_map, catalogue = load_system()
+    robot = Robot("StyleBot-1", warehouse_map, catalogue)
 
     if args.auto:
-        auto_demo(wm, cat, use_pygame=args.pygame)
+        auto_demo(warehouse_map, catalogue, use_pygame=args.pygame)
     else:
-        interactive(wm, cat, robot, use_pygame=args.pygame)
+        interactive(warehouse_map, catalogue, robot, use_pygame=args.pygame)
 
 
 if __name__ == "__main__":

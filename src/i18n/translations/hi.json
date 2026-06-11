@@ -1,7 +1,7 @@
 {
-  "app_title": "स्टाइलवेयर रोबॉट नेविगेशन",
-  "pygame_missing": "pygame इंस्टॉल नहीं है।: pip install pygame",
-  "step_info": "चरण {step}/{total}  स्थिति={pos}",
-  "terminal_fallback": "टर्मिनल पर गिरावट।",
-  "generate_error_no_ai": "कोई एआई बैकएंड उपलब्ध नहीं।"
+  "app_title": "\u0938\u094d\u091f\u093e\u0907\u0932\u0935\u0947\u092f\u0930 \u0930\u094b\u092c\u094b\u091f \u0928\u0947\u0935\u093f\u0917\u0947\u0936\u0928",
+  "pygame_missing": "pygame \u0907\u0902\u0938\u094d\u091f\u0949\u0932 \u0928\u0939\u0940\u0902 \u0939\u0948: pip install pygame",
+  "step_info": "\u091a\u0930\u0923 {step}/{total}  \u0938\u094d\u0925\u093f\u0924\u093f={pos}",
+  "terminal_fallback": "\u091f\u0930\u094d\u092e\u093f\u0928\u0932 \u092e\u094b\u0921 \u092a\u0930 \u0935\u093e\u092a\u0938 \u091c\u093e \u0930\u0939\u0947 \u0939\u0948\u0902\u0964",
+  "generate_error_no_ai": "\u0915\u094b\u0908 \u090f\u0906\u0908 \u092c\u0948\u0915\u090f\u0902\u0921 \u0909\u092a\u0932\u092c\u094d\u0927 \u0928\u0939\u0940\u0902 \u0939\u0948\u0964"
 }

@@ -1,15 +1,17 @@
-"""Simple i18n loader for the project.
-
-This minimal implementation loads JSON translation files from
-`src/i18n/translations/{lang}.json` and provides a `translate` helper.
-Supports: 'en' (default), 'hi' (Hindi), 'te' (Telugu).
-"""
+"""Simple i18n loader for the project."""
 from __future__ import annotations
 import json
 import os
 from typing import Dict
 
 _CACHE: Dict[str, Dict[str, str]] = {}
+_EN_TRANSLATIONS: Dict[str, str] = {
+    "app_title": "StyleWarehouse Robot Navigation",
+    "pygame_missing": "pygame is not installed: pip install pygame",
+    "step_info": "Step {step}/{total}  position={pos}",
+    "terminal_fallback": "Falling back to terminal mode.",
+    "generate_error_no_ai": "No AI backend is available.",
+}
 
 
 def _load_lang(lang: str) -> Dict[str, str]:
@@ -27,8 +29,8 @@ def _load_lang(lang: str) -> Dict[str, str]:
 
 
 def translate(key: str, lang: str = "en") -> str:
-    """Return the translated string for `key` or the key itself as fallback."""
+    """Return the translated string for ``key`` with English fallback."""
     if lang == "en":
-        return key
+        return _EN_TRANSLATIONS.get(key, key)
     data = _load_lang(lang)
-    return data.get(key, key)
+    return data.get(key, _EN_TRANSLATIONS.get(key, key))
