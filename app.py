@@ -9,12 +9,14 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 from urllib.parse import parse_qs
 
-from config import ALGORITHM, CATALOGUE_FILE
+from config import ALGORITHM, CATALOGUE_FILE, WAREHOUSE_ROWS, WAREHOUSE_COLS, DEPOT_POSITION
 from main import DEMO_ORDER
 from src.robot.order import Order
 from src.robot.robot import Robot
 from src.warehouse.catalogue import Item, ItemCatalogue
 from src.warehouse.map import build_default_map
+from src.ai import create_ai_service
+from src.i18n import translate
 
 Headers = List[Tuple[str, str]]
 PUBLIC_DIR = Path(__file__).parent / "public"
@@ -368,6 +370,133 @@ def app(environ, start_response):
 
         order_id = str(payload.get("order_id", "API-ORDER"))
         return _json_response(start_response, HTTPStatus.OK, _simulate_order(order_id, lines))
+
+    # AI endpoints
+    if path == "/api/ai/optimize" and method == "POST":
+        try:
+            payload = _read_json_body(environ)
+            backend = str(payload.get("backend", "local"))
+            model = str(payload.get("model", "llama2"))
+            token = payload.get("token")
+            
+            items = payload.get("items", [])
+            path_data = payload.get("path", [])
+            
+            ai_service = create_ai_service(backend=backend, model=model, token=token)
+            suggestion = ai_service.optimize_route_suggestion(items, path_data)
+            
+            return _json_response(
+                start_response,
+                HTTPStatus.OK,
+                {"ok": True, "suggestion": suggestion, "backend": backend}
+            )
+        except Exception as e:
+            return _json_response(
+                start_response,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"ok": False, "error": str(e)}
+            )
+
+    if path == "/api/ai/analyze" and method == "POST":
+        try:
+            payload = _read_json_body(environ)
+            backend = str(payload.get("backend", "local"))
+            model = str(payload.get("model", "llama2"))
+            token = payload.get("token")
+            
+            warehouse_data = {
+                "rows": WAREHOUSE_ROWS,
+                "cols": WAREHOUSE_COLS,
+                "depot": DEPOT_POSITION,
+                "total_items": len(_build_catalogue())
+            }
+            
+            ai_service = create_ai_service(backend=backend, model=model, token=token)
+            analysis = ai_service.analyze_warehouse_layout(warehouse_data)
+            
+            return _json_response(
+                start_response,
+                HTTPStatus.OK,
+                {"ok": True, "analysis": analysis, "backend": backend}
+            )
+        except Exception as e:
+            return _json_response(
+                start_response,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"ok": False, "error": str(e)}
+            )
+
+    if path == "/api/ai/query" and method == "POST":
+        try:
+            payload = _read_json_body(environ)
+            query_text = str(payload.get("query", ""))
+            backend = str(payload.get("backend", "local"))
+            model = str(payload.get("model", "llama2"))
+            token = payload.get("token")
+            
+            if not query_text:
+                return _json_response(
+                    start_response,
+                    HTTPStatus.BAD_REQUEST,
+                    {"ok": False, "error": "Query text is required"}
+                )
+            
+            ai_service = create_ai_service(backend=backend, model=model, token=token)
+            response = ai_service.process_natural_query(query_text)
+            
+            return _json_response(
+                start_response,
+                HTTPStatus.OK,
+                {"ok": True, "response": response, "backend": backend}
+            )
+        except Exception as e:
+            return _json_response(
+                start_response,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"ok": False, "error": str(e)}
+            )
+
+    if path == "/api/ai/summary" and method == "POST":
+        try:
+            payload = _read_json_body(environ)
+            backend = str(payload.get("backend", "local"))
+            model = str(payload.get("model", "llama2"))
+            token = payload.get("token")
+            order_data = payload.get("order_data", {})
+            
+            ai_service = create_ai_service(backend=backend, model=model, token=token)
+            summary = ai_service.generate_order_summary(order_data)
+            
+            return _json_response(
+                start_response,
+                HTTPStatus.OK,
+                {"ok": True, "summary": summary, "backend": backend}
+            )
+        except Exception as e:
+            return _json_response(
+                start_response,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"ok": False, "error": str(e)}
+            )
+
+    # i18n endpoint
+    if path == "/api/i18n/translate" and method == "GET":
+        lang = query.get("lang", ["en"])[0]
+        key = query.get("key", [""])[0]
+        
+        if not key:
+            return _json_response(
+                start_response,
+                HTTPStatus.BAD_REQUEST,
+                {"ok": False, "error": "Translation key is required"}
+            )
+        
+        translation = translate(key, lang)
+        return _json_response(
+            start_response,
+            HTTPStatus.OK,
+            {"ok": True, "key": key, "lang": lang, "translation": translation}
+        )
 
     return _json_response(
         start_response,

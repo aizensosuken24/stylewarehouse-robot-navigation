@@ -1,6 +1,4 @@
-# Vercel Deployment Ignore
-# Exclude unnecessary files from Vercel deployment
-
+# Vercel deployment ignore
 .git
 .gitignore
 .env.local
@@ -16,7 +14,7 @@ venv
 node_modules
 .DS_Store
 tests
-*.md
-!README.md
 Speckit
 run_tests.sh
+*.md
+!README.md

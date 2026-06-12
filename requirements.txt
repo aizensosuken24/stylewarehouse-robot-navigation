@@ -1,17 +1,10 @@
-# StyleWarehouse Robot Navigation — Python dependencies
-# Core simulation runs with zero third-party dependencies.
-# pygame is optional (only needed for animated GUI visualisation).
+# StyleWarehouse Robot Navigation — deployment dependencies
+# pygame is removed: it requires SDL which isn't available on cloud servers.
+# Install pygame locally only: pip install pygame
 
-# Optional visualisation
-pygame>=2.5.0   # pip install pygame
-
-# Optional API layer (stretch goal)
-# fastapi>=0.110.0
-# uvicorn>=0.27.0
-
-# Optional AI / HTTP helpers
+# HTTP helpers
 requests>=2.28.0
 python-dotenv>=1.0.0
 
-# Deployment server for Render
+# Deployment server (Render uses gunicorn)
 gunicorn>=23.0.0
