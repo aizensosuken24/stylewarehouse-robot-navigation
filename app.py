@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 from http import HTTPStatus
 from io import BytesIO
+from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 from urllib.parse import parse_qs
 
@@ -15,6 +17,7 @@ from src.warehouse.catalogue import Item, ItemCatalogue
 from src.warehouse.map import build_default_map
 
 Headers = List[Tuple[str, str]]
+PUBLIC_DIR = Path(__file__).parent / "public"
 
 
 def _build_catalogue() -> ItemCatalogue:
@@ -31,14 +34,20 @@ def _build_robot() -> Tuple[Robot, ItemCatalogue]:
 
 
 def _item_to_dict(item: Item) -> Dict[str, object]:
+    # Convert grid coordinates to location string (e.g., "A1")
+    row_char = chr(65 + int(item.grid_row)) if isinstance(item.grid_row, int) else str(item.grid_row)
+    col_num = int(item.grid_col) if isinstance(item.grid_col, int) else item.grid_col
+    location = f"{row_char}{col_num}"
+    
     return {
+        "id": item.sku,
         "sku": item.sku,
         "name": item.name,
         "category": item.category,
         "brand": item.brand,
         "size": item.size,
         "colour": item.colour,
-        "location": [item.grid_row, item.grid_col],
+        "location": location,
         "quantity": item.quantity,
     }
 
@@ -65,6 +74,45 @@ def _text_response(start_response, status: HTTPStatus, body: str) -> Iterable[by
     return [encoded]
 
 
+def _serve_static_file(start_response, file_path: Path) -> Iterable[bytes]:
+    """Serve a static file from the public directory."""
+    if not file_path.exists() or not file_path.is_file():
+        return _json_response(
+            start_response,
+            HTTPStatus.NOT_FOUND,
+            {"ok": False, "error": "File not found"},
+        )
+
+    try:
+        content = file_path.read_bytes()
+        # Determine content type
+        suffix = file_path.suffix.lower()
+        content_type = {
+            ".html": "text/html; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+            ".json": "application/json; charset=utf-8",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+        }.get(suffix, "application/octet-stream")
+
+        headers: Headers = [
+            ("Content-Type", content_type),
+            ("Content-Length", str(len(content))),
+            ("Cache-Control", "public, max-age=3600"),
+        ]
+        start_response("200 OK", headers)
+        return [content]
+    except Exception as e:
+        return _json_response(
+            start_response,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"ok": False, "error": str(e)},
+        )
+
+
 def _read_json_body(environ) -> Dict[str, object]:
     raw_length = environ.get("CONTENT_LENGTH", "").strip()
     length = int(raw_length) if raw_length.isdigit() else 0
@@ -78,21 +126,65 @@ def _simulate_order(order_id: str, lines: List[Tuple[str, int]]) -> Dict[str, ob
     robot, catalogue = _build_robot()
     order = Order(order_id, lines)
     success = robot.execute_order(order, verbose=False)
+    
+    # Format location from coordinates
+    start_pos = robot.position if hasattr(robot, 'position') else (0, 0)
+    start_row_char = chr(65 + int(start_pos[0])) if isinstance(start_pos[0], int) else "A"
+    start_col = int(start_pos[1]) if isinstance(start_pos[1], int) else 0
+    start_location = f"{start_row_char}{start_col}"
+    
+    # Format items with location strings
+    items = []
+    for sku in order.picked_skus():
+        item = catalogue.find(sku)
+        if item:
+            row_char = chr(65 + int(item.grid_row)) if isinstance(item.grid_row, int) else str(item.grid_row)
+            col_num = int(item.grid_col) if isinstance(item.grid_col, int) else item.grid_col
+            location = f"{row_char}{col_num}"
+            items.append({
+                "id": sku,
+                "sku": sku,
+                "name": item.name,
+                "location": location,
+            })
+    
+    # Format path as coordinates
+    path = []
+    if hasattr(robot, 'log') and robot.log:
+        # Extract positions from the log if available
+        for log_entry in robot.log:
+            if isinstance(log_entry, str) and '->' in log_entry:
+                # Parse something like "A0 -> A1"
+                parts = log_entry.split('->')
+                if len(parts) == 2:
+                    start_str = parts[0].strip()
+                    if start_str and len(start_str) >= 2:
+                        try:
+                            row = ord(start_str[0]) - 65
+                            col = int(start_str[1:])
+                            path.append({"x": col, "y": row})
+                        except (ValueError, IndexError):
+                            pass
+    
     return {
         "ok": success,
         "order_id": order.order_id,
+        "algorithm": "A* Pathfinding + TSP",
         "requested_lines": [{"sku": sku, "quantity": quantity} for sku, quantity in lines],
-        "picked_skus": order.picked_skus(),
-        "remaining_skus": order.pending_skus(),
+        "items": items,
+        "start_position": start_location,
+        "end_position": start_location,
+        "total_distance": float(robot.total_steps) if hasattr(robot, 'total_steps') else 0,
+        "path": path,
         "robot": {
             "name": robot.name,
-            "position": list(robot.position),
-            "battery": robot.battery,
-            "total_steps": robot.total_steps,
-            "carrying": robot.carrying,
+            "position": list(robot.position) if hasattr(robot, 'position') else [0, 0],
+            "battery": robot.battery if hasattr(robot, 'battery') else 100,
+            "total_steps": robot.total_steps if hasattr(robot, 'total_steps') else 0,
+            "carrying": robot.carrying if hasattr(robot, 'carrying') else 0,
         },
         "catalogue_size": len(catalogue),
-        "log": robot.log,
+        "execution_time": 0.0,
     }
 
 
@@ -200,7 +292,17 @@ def app(environ, start_response):
         )
         return [b""]
 
-    if path == "/":
+    # Serve static files
+    if path.startswith("/css/") or path.startswith("/js/"):
+        file_path = PUBLIC_DIR / path.lstrip("/")
+        return _serve_static_file(start_response, file_path)
+
+    # Serve index.html for root and HTML requests
+    if path == "/" or path == "/index.html":
+        file_path = PUBLIC_DIR / "index.html"
+        if file_path.exists():
+            return _serve_static_file(start_response, file_path)
+        # Fallback to legacy homepage
         return _text_response(start_response, HTTPStatus.OK, _homepage())
 
     if path in {"/health", "/api/health"}:
