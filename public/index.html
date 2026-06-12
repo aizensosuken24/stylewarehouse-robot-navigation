@@ -135,5 +135,13 @@
     <script src="/js/api.js"></script>
     <script src="/js/visualizer.js"></script>
     <script src="/js/app.js"></script>
+    <script>
+        // Ensure init runs after DOM and scripts are loaded
+        setTimeout(() => {
+            if (typeof init === 'function') {
+                init();
+            }
+        }, 100);
+    </script>
 </body>
 </html>

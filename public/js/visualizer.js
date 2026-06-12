@@ -6,6 +6,10 @@
 class WarehouseVisualizer {
     constructor(canvasId, warehouseLayout) {
         this.canvas = document.getElementById(canvasId);
+        if (!this.canvas) {
+            console.error('Canvas element not found:', canvasId);
+            return;
+        }
         this.ctx = this.canvas.getContext('2d');
         this.layout = warehouseLayout;
         this.robot = null;
@@ -13,14 +17,24 @@ class WarehouseVisualizer {
         this.items = [];
         this.cellSize = 40;
         this.padding = 30;
-        this.setupCanvas();
+        try {
+            this.setupCanvas();
+        } catch (e) {
+            console.error('Error setting up canvas:', e);
+        }
     }
 
     setupCanvas() {
         // Set canvas to fill its container
         const wrapper = this.canvas.parentElement;
-        this.canvas.width = wrapper.offsetWidth - 40; // Accounting for padding
-        this.canvas.height = Math.min(600, wrapper.offsetHeight);
+        if (!wrapper) {
+            console.error('Canvas parent element not found');
+            this.canvas.width = 800;
+            this.canvas.height = 600;
+        } else {
+            this.canvas.width = Math.max(wrapper.offsetWidth - 40, 400); // Accounting for padding
+            this.canvas.height = Math.min(600, wrapper.offsetHeight || 600);
+        }
         this.draw();
     }
 

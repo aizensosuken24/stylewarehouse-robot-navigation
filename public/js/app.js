@@ -46,17 +46,24 @@ let visualizer = null;
 async function init() {
     console.log('Initializing application...');
 
-    // Setup event listeners
-    setupEventListeners();
+    try {
+        // Setup event listeners
+        setupEventListeners();
 
-    // Check API health
-    await checkHealth();
+        // Check API health
+        await checkHealth();
 
-    // Initialize visualizer
-    visualizer = new WarehouseVisualizer('warehouse-canvas');
+        // Initialize visualizer
+        visualizer = new WarehouseVisualizer('warehouse-canvas');
 
-    // Load catalogue
-    await loadCatalogue();
+        // Load catalogue
+        await loadCatalogue();
+        
+        console.log('Application initialized successfully');
+    } catch (error) {
+        console.error('Fatal error during initialization:', error);
+        alert('Failed to initialize application. Check console for details.');
+    }
 }
 
 /**
