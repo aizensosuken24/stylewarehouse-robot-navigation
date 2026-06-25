@@ -5,12 +5,340 @@ const API_BASE =
     ? "http://localhost:5000"
     : "https://stylewarehouse-robot-navigation-1.onrender.com");
 
+const TRANSLATIONS = {
+  en: {
+    pageTitle: "Smart-Robo Nav | Warehouse Control",
+    "brand.name": "Smart-Robo Nav",
+    "brand.subtitle": "Warehouse control grid",
+    "language.label": "Language",
+    "nav.dashboard": "Dashboard",
+    "nav.pathfinder": "Pathfinder",
+    "nav.inventory": "Inventory",
+    "nav.robots": "Robots",
+    "status.connecting": "Connecting",
+    "status.online": "API online",
+    "status.offline": "API offline",
+    "dashboard.eyebrow": "Ops overview",
+    "dashboard.title": "Zone-gated warehouse routing",
+    "dashboard.description":
+      "Every zone uses one controlled entry and one controlled exit. Paths now respect those gates and the obstacle grid inside and outside each zone.",
+    "dashboard.meta.app": "App",
+    "dashboard.meta.routing": "Routing",
+    "dashboard.meta.routingValue": "A* + gated zones",
+    "stats.robotsOnline": "Robots online",
+    "stats.idleNow": "Idle now",
+    "stats.avgBattery": "Avg battery",
+    "stats.trackedSkus": "Tracked SKUs",
+    "stats.lowStock": "Low stock",
+    "map.title": "Warehouse map",
+    "map.description": "Zone entry and exit gates are shown directly on the grid.",
+    "legend.zones": "Zones",
+    "legend.obstacles": "Obstacles",
+    "legend.entry": "Entry",
+    "legend.exit": "Exit",
+    "legend.robots": "Robots",
+    "fleet.title": "Fleet status",
+    "fleet.description": "Live robot state, battery, and location.",
+    "zones.title": "Zone access",
+    "zones.description": "Only these gates allow movement across zone boundaries.",
+    "zones.zoneLabel": "Zone {id}",
+    "zones.entryPoint": "Entry {point}",
+    "zones.exitPoint": "Exit {point}",
+    "zones.gated": "Gated",
+    "pathfinder.eyebrow": "Routing",
+    "pathfinder.title": "Pathfinder",
+    "pathfinder.findTitle": "Find path",
+    "pathfinder.findDescription": "The route respects zone gates and obstacles automatically.",
+    "pathfinder.startX": "Start X",
+    "pathfinder.startY": "Start Y",
+    "pathfinder.goalX": "Goal X",
+    "pathfinder.goalY": "Goal Y",
+    "pathfinder.visualTitle": "Path visual",
+    "pathfinder.visualDescription": "Start, goal, and routed cells are plotted on the same gated map.",
+    "pick.title": "Pick route optimizer",
+    "pick.description": "Orders stops using the live traversable distance, not straight-line distance.",
+    "pick.itemIds": "Item IDs",
+    "pick.placeholder": "ITM001, ITM003, ITM005",
+    "inventory.eyebrow": "Stock",
+    "inventory.title": "Inventory",
+    "inventory.searchPlaceholder": "Search items",
+    "robots.eyebrow": "Fleet",
+    "robots.title": "Robot fleet",
+    "table.id": "ID",
+    "table.name": "Name",
+    "table.category": "Category",
+    "table.qty": "Qty",
+    "table.reorder": "Reorder",
+    "table.location": "Location",
+    "table.status": "Status",
+    "actions.reload": "Reload data",
+    "actions.findPath": "Find path",
+    "actions.optimizeRoute": "Optimize route",
+    "actions.charge": "Charge",
+    "robot.battery": "Battery",
+    "robot.distance": "Distance",
+    "robot.picks": "Picks",
+    "item.low": "Low",
+    "item.ok": "OK",
+    "robotStatus.idle": "Idle",
+    "robotStatus.moving": "Moving",
+    "robotStatus.picking": "Picking",
+    "robotStatus.charging": "Charging",
+    "robotStatus.error": "Error",
+    "robotStatus.returning": "Returning",
+    "messages.pathFound": "Path found",
+    "messages.steps": "Steps: {value}",
+    "messages.length": "Length: {value} units",
+    "messages.route": "Route: {value}",
+    "messages.routeOrder": "Route order: {value}",
+    "messages.error": "Error: {value}",
+    "messages.enterItemId": "Enter at least one item ID",
+    "messages.pickOptimized": "Pick route optimized",
+    "messages.dashboardRefreshed": "Dashboard refreshed",
+    "messages.robotLine": "Robot: {name} ({id})",
+    "messages.stopsLine": "Stops: {value}",
+    "messages.distanceLine": "Distance: {value} units",
+    "messages.chargeSuccess": "{name} charged to 100%",
+    "messages.pathRequestFailed": "Path request failed",
+    "messages.routeRequestFailed": "Route request failed",
+    "messages.chargeFailed": "Charge failed"
+  },
+  hi: {
+    pageTitle: "Smart-Robo Nav | वेयरहाउस नियंत्रण",
+    "brand.name": "स्मार्ट-रोबो नैव",
+    "brand.subtitle": "वेयरहाउस नियंत्रण ग्रिड",
+    "language.label": "भाषा",
+    "nav.dashboard": "डैशबोर्ड",
+    "nav.pathfinder": "पाथफाइंडर",
+    "nav.inventory": "इन्वेंटरी",
+    "nav.robots": "रोबोट",
+    "status.connecting": "कनेक्ट हो रहा है",
+    "status.online": "एपीआई ऑनलाइन है",
+    "status.offline": "एपीआई ऑफलाइन है",
+    "dashboard.eyebrow": "ऑप्स अवलोकन",
+    "dashboard.title": "ज़ोन-गेटेड वेयरहाउस रूटिंग",
+    "dashboard.description":
+      "हर ज़ोन के लिए एक नियंत्रित प्रवेश और एक नियंत्रित निकास है। अब पाथ इन गेट्स और ज़ोन के अंदर-बाहर की बाधाओं का पालन करते हैं।",
+    "dashboard.meta.app": "ऐप",
+    "dashboard.meta.routing": "रूटिंग",
+    "dashboard.meta.routingValue": "A* + गेटेड ज़ोन",
+    "stats.robotsOnline": "ऑनलाइन रोबोट",
+    "stats.idleNow": "अभी निष्क्रिय",
+    "stats.avgBattery": "औसत बैटरी",
+    "stats.trackedSkus": "ट्रैक किए गए SKU",
+    "stats.lowStock": "कम स्टॉक",
+    "map.title": "वेयरहाउस मैप",
+    "map.description": "ज़ोन प्रवेश और निकास गेट्स ग्रिड पर सीधे दिखाए गए हैं।",
+    "legend.zones": "ज़ोन",
+    "legend.obstacles": "बाधाएँ",
+    "legend.entry": "प्रवेश",
+    "legend.exit": "निकास",
+    "legend.robots": "रोबोट",
+    "fleet.title": "फ्लीट स्थिति",
+    "fleet.description": "रोबोट की लाइव स्थिति, बैटरी और लोकेशन।",
+    "zones.title": "ज़ोन एक्सेस",
+    "zones.description": "ज़ोन सीमाओं के पार केवल यही गेट्स आवागमन की अनुमति देते हैं।",
+    "zones.zoneLabel": "ज़ोन {id}",
+    "zones.entryPoint": "प्रवेश {point}",
+    "zones.exitPoint": "निकास {point}",
+    "zones.gated": "नियंत्रित",
+    "pathfinder.eyebrow": "रूटिंग",
+    "pathfinder.title": "पाथफाइंडर",
+    "pathfinder.findTitle": "पाथ खोजें",
+    "pathfinder.findDescription": "रूट अपने-आप ज़ोन गेट्स और बाधाओं का पालन करता है।",
+    "pathfinder.startX": "प्रारंभ X",
+    "pathfinder.startY": "प्रारंभ Y",
+    "pathfinder.goalX": "लक्ष्य X",
+    "pathfinder.goalY": "लक्ष्य Y",
+    "pathfinder.visualTitle": "पाथ दृश्य",
+    "pathfinder.visualDescription": "प्रारंभ, लक्ष्य और रूटेड सेल्स एक ही गेटेड मैप पर दिखाए जाते हैं।",
+    "pick.title": "पिक रूट ऑप्टिमाइज़र",
+    "pick.description": "स्टॉप्स का क्रम सीधी दूरी से नहीं, बल्कि वास्तविक चलने योग्य दूरी से तय होता है।",
+    "pick.itemIds": "आइटम आईडी",
+    "pick.placeholder": "ITM001, ITM003, ITM005",
+    "inventory.eyebrow": "स्टॉक",
+    "inventory.title": "इन्वेंटरी",
+    "inventory.searchPlaceholder": "आइटम खोजें",
+    "robots.eyebrow": "फ्लीट",
+    "robots.title": "रोबोट फ्लीट",
+    "table.id": "आईडी",
+    "table.name": "नाम",
+    "table.category": "श्रेणी",
+    "table.qty": "मात्रा",
+    "table.reorder": "रीऑर्डर",
+    "table.location": "स्थान",
+    "table.status": "स्थिति",
+    "actions.reload": "डेटा पुनः लोड करें",
+    "actions.findPath": "पाथ खोजें",
+    "actions.optimizeRoute": "रूट ऑप्टिमाइज़ करें",
+    "actions.charge": "चार्ज",
+    "robot.battery": "बैटरी",
+    "robot.distance": "दूरी",
+    "robot.picks": "पिक्स",
+    "item.low": "कम",
+    "item.ok": "ठीक",
+    "robotStatus.idle": "निष्क्रिय",
+    "robotStatus.moving": "चल रहा है",
+    "robotStatus.picking": "पिक कर रहा है",
+    "robotStatus.charging": "चार्ज हो रहा है",
+    "robotStatus.error": "त्रुटि",
+    "robotStatus.returning": "वापस आ रहा है",
+    "messages.pathFound": "पाथ मिल गया",
+    "messages.steps": "कदम: {value}",
+    "messages.length": "लंबाई: {value} यूनिट",
+    "messages.route": "रूट: {value}",
+    "messages.routeOrder": "रूट क्रम: {value}",
+    "messages.error": "त्रुटि: {value}",
+    "messages.enterItemId": "कम से कम एक आइटम आईडी दर्ज करें",
+    "messages.pickOptimized": "पिक रूट ऑप्टिमाइज़ हो गया",
+    "messages.dashboardRefreshed": "डैशबोर्ड रीफ्रेश हो गया",
+    "messages.robotLine": "रोबोट: {name} ({id})",
+    "messages.stopsLine": "स्टॉप्स: {value}",
+    "messages.distanceLine": "दूरी: {value} यूनिट",
+    "messages.chargeSuccess": "{name} को 100% तक चार्ज किया गया",
+    "messages.pathRequestFailed": "पाथ अनुरोध विफल हुआ",
+    "messages.routeRequestFailed": "रूट अनुरोध विफल हुआ",
+    "messages.chargeFailed": "चार्ज विफल हुआ"
+  },
+  te: {
+    pageTitle: "Smart-Robo Nav | గిడ్డంగి నియంత్రణ",
+    "brand.name": "స్మార్ట్-రోబో నావ్",
+    "brand.subtitle": "గిడ్డంగి నియంత్రణ గ్రిడ్",
+    "language.label": "భాష",
+    "nav.dashboard": "డాష్‌బోర్డ్",
+    "nav.pathfinder": "పాత్‌ఫైండర్",
+    "nav.inventory": "ఇన్వెంటరీ",
+    "nav.robots": "రోబోలు",
+    "status.connecting": "కనెక్ట్ అవుతోంది",
+    "status.online": "API ఆన్‌లైన్‌లో ఉంది",
+    "status.offline": "API ఆఫ్‌లైన్‌లో ఉంది",
+    "dashboard.eyebrow": "ఆప్స్ అవలోకనం",
+    "dashboard.title": "జోన్-గేటెడ్ గిడ్డంగి రూటింగ్",
+    "dashboard.description":
+      "ప్రతి జోన్‌కు ఒక నియంత్రిత ప్రవేశం, ఒక నియంత్రిత నిష్క్రమణ ఉంది. ఇప్పుడు మార్గాలు ఈ గేట్లు మరియు జోన్ లోపల, బయట ఉన్న అడ్డంకులను గౌరవిస్తాయి.",
+    "dashboard.meta.app": "యాప్",
+    "dashboard.meta.routing": "రూటింగ్",
+    "dashboard.meta.routingValue": "A* + గేటెడ్ జోన్‌లు",
+    "stats.robotsOnline": "ఆన్‌లైన్ రోబోలు",
+    "stats.idleNow": "ప్రస్తుతం నిర్జీవం",
+    "stats.avgBattery": "సగటు బ్యాటరీ",
+    "stats.trackedSkus": "ట్రాక్ చేసిన SKUలు",
+    "stats.lowStock": "తక్కువ స్టాక్",
+    "map.title": "గిడ్డంగి మ్యాప్",
+    "map.description": "జోన్ ప్రవేశ, నిష్క్రమణ గేట్లు గ్రిడ్‌పై నేరుగా చూపబడతాయి.",
+    "legend.zones": "జోన్‌లు",
+    "legend.obstacles": "అడ్డంకులు",
+    "legend.entry": "ప్రవేశం",
+    "legend.exit": "నిష్క్రమణ",
+    "legend.robots": "రోబోలు",
+    "fleet.title": "ఫ్లీట్ స్థితి",
+    "fleet.description": "రోబో లైవ్ స్థితి, బ్యాటరీ, స్థానం.",
+    "zones.title": "జోన్ యాక్సెస్",
+    "zones.description": "జోన్ సరిహద్దులు దాటడానికి ఈ గేట్ల ద్వారానే అనుమతి ఉంటుంది.",
+    "zones.zoneLabel": "జోన్ {id}",
+    "zones.entryPoint": "ప్రవేశం {point}",
+    "zones.exitPoint": "నిష్క్రమణ {point}",
+    "zones.gated": "నియంత్రితం",
+    "pathfinder.eyebrow": "రూటింగ్",
+    "pathfinder.title": "పాత్‌ఫైండర్",
+    "pathfinder.findTitle": "మార్గం కనుగొను",
+    "pathfinder.findDescription": "మార్గం ఆటోమేటిక్‌గా జోన్ గేట్లు, అడ్డంకులను గౌరవిస్తుంది.",
+    "pathfinder.startX": "ప్రారంభం X",
+    "pathfinder.startY": "ప్రారంభం Y",
+    "pathfinder.goalX": "లక్ష్యం X",
+    "pathfinder.goalY": "లక్ష్యం Y",
+    "pathfinder.visualTitle": "మార్గ దృశ్యం",
+    "pathfinder.visualDescription": "ప్రారంభం, లక్ష్యం, మార్గ సెల్‌లు ఒకే గేటెడ్ మ్యాప్‌పై చూపబడతాయి.",
+    "pick.title": "పిక్ రూట్ ఆప్టిమైజర్",
+    "pick.description": "స్టాప్‌ల క్రమం సూటి దూరంతో కాదు, నిజమైన ప్రయాణ దూరంతో నిర్ణయించబడుతుంది.",
+    "pick.itemIds": "ఐటమ్ ఐడీలు",
+    "pick.placeholder": "ITM001, ITM003, ITM005",
+    "inventory.eyebrow": "స్టాక్",
+    "inventory.title": "ఇన్వెంటరీ",
+    "inventory.searchPlaceholder": "ఐటమ్‌లు వెతకండి",
+    "robots.eyebrow": "ఫ్లీట్",
+    "robots.title": "రోబో ఫ్లీట్",
+    "table.id": "ఐడి",
+    "table.name": "పేరు",
+    "table.category": "వర్గం",
+    "table.qty": "పరిమాణం",
+    "table.reorder": "రీఆర్డర్",
+    "table.location": "స్థానం",
+    "table.status": "స్థితి",
+    "actions.reload": "డేటాను మళ్లీ లోడ్ చేయండి",
+    "actions.findPath": "మార్గం కనుగొను",
+    "actions.optimizeRoute": "రూట్ ఆప్టిమైజ్ చేయండి",
+    "actions.charge": "చార్జ్",
+    "robot.battery": "బ్యాటరీ",
+    "robot.distance": "దూరం",
+    "robot.picks": "పిక్స్",
+    "item.low": "తక్కువ",
+    "item.ok": "సరే",
+    "robotStatus.idle": "నిర్జీవం",
+    "robotStatus.moving": "కదులుతోంది",
+    "robotStatus.picking": "పిక్ చేస్తోంది",
+    "robotStatus.charging": "చార్జ్ అవుతోంది",
+    "robotStatus.error": "లోపం",
+    "robotStatus.returning": "తిరిగి వస్తోంది",
+    "messages.pathFound": "మార్గం కనుగొనబడింది",
+    "messages.steps": "దశలు: {value}",
+    "messages.length": "పొడవు: {value} యూనిట్లు",
+    "messages.route": "మార్గం: {value}",
+    "messages.routeOrder": "రూట్ క్రమం: {value}",
+    "messages.error": "లోపం: {value}",
+    "messages.enterItemId": "కనీసం ఒక ఐటమ్ ఐడి ఇవ్వండి",
+    "messages.pickOptimized": "పిక్ రూట్ ఆప్టిమైజ్ చేయబడింది",
+    "messages.dashboardRefreshed": "డాష్‌బోర్డ్ రిఫ్రెష్ చేయబడింది",
+    "messages.robotLine": "రోబో: {name} ({id})",
+    "messages.stopsLine": "స్టాప్‌లు: {value}",
+    "messages.distanceLine": "దూరం: {value} యూనిట్లు",
+    "messages.chargeSuccess": "{name} ను 100% వరకు చార్జ్ చేశారు",
+    "messages.pathRequestFailed": "మార్గ అభ్యర్థన విఫలమైంది",
+    "messages.routeRequestFailed": "రూట్ అభ్యర్థన విఫలమైంది",
+    "messages.chargeFailed": "చార్జ్ విఫలమైంది"
+  }
+};
+
+const API_ERROR_KEYS = {
+  "Provide at least one item_id in 'item_ids'": "messages.enterItemId",
+  "Path request failed": "messages.pathRequestFailed",
+  "Route request failed": "messages.routeRequestFailed",
+  "Charge failed": "messages.chargeFailed"
+};
+
 let warehouseData = null;
 let itemsPage = 1;
 let itemsQuery = "";
+let currentLanguage = localStorage.getItem("smart-robo-nav-language") || "en";
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+
+function t(key, vars = {}) {
+  const dict = TRANSLATIONS[currentLanguage] || TRANSLATIONS.en;
+  const fallback = TRANSLATIONS.en[key] || key;
+  const template = dict[key] || fallback;
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(vars[name] ?? ""));
+}
+
+function applyTranslations() {
+  document.documentElement.lang = currentLanguage;
+  document.title = t("pageTitle");
+
+  $$("[data-i18n]").forEach(node => {
+    node.textContent = t(node.dataset.i18n);
+  });
+
+  $$("[data-i18n-placeholder]").forEach(node => {
+    node.placeholder = t(node.dataset.i18nPlaceholder);
+  });
+}
+
+function localizeApiError(message) {
+  if (!message) return "";
+  const key = API_ERROR_KEYS[message];
+  return key ? t(key) : message;
+}
 
 function toast(msg, ok = true) {
   const el = $("#toast");
@@ -37,12 +365,12 @@ async function api(path, opts = {}) {
 
 function statusBadge(status) {
   const map = {
-    idle: ["badge-ok", "Idle"],
-    moving: ["badge-warn", "Moving"],
-    picking: ["badge-warn", "Picking"],
-    charging: ["badge-ok", "Charging"],
-    error: ["badge-danger", "Error"],
-    returning: ["badge-warn", "Returning"]
+    idle: ["badge-ok", t("robotStatus.idle")],
+    moving: ["badge-warn", t("robotStatus.moving")],
+    picking: ["badge-warn", t("robotStatus.picking")],
+    charging: ["badge-ok", t("robotStatus.charging")],
+    error: ["badge-danger", t("robotStatus.error")],
+    returning: ["badge-warn", t("robotStatus.returning")]
   };
 
   const [cls, label] = map[status] || ["badge-warn", status];
@@ -66,10 +394,10 @@ async function checkHealth() {
 
   if (res.success) {
     dot.className = "status-dot online";
-    label.textContent = "API online";
+    label.textContent = t("status.online");
   } else {
     dot.className = "status-dot offline";
-    label.textContent = "API offline";
+    label.textContent = t("status.offline");
   }
 }
 
@@ -125,13 +453,13 @@ function renderZoneAccess(zones) {
   el.innerHTML = zones.map(zone => `
     <div class="zone-row">
       <div>
-        <div class="zone-title">Zone ${zone.id} <span class="zone-meta">${zone.name}</span></div>
+        <div class="zone-title">${t("zones.zoneLabel", { id: zone.id })} <span class="zone-meta">${zone.name}</span></div>
         <div class="zone-gates">
-          <span>Entry ${pointText(zone.entry)}</span>
-          <span>Exit ${pointText(zone.exit)}</span>
+          <span>${t("zones.entryPoint", { point: pointText(zone.entry) })}</span>
+          <span>${t("zones.exitPoint", { point: pointText(zone.exit) })}</span>
         </div>
       </div>
-      <span class="badge badge-warn">Gated</span>
+      <span class="badge badge-warn">${t("zones.gated")}</span>
     </div>
   `).join("");
 }
@@ -282,23 +610,26 @@ async function findPath() {
   const box = $("#path-result");
   if (res.success) {
     box.textContent = [
-      "Path found",
-      `Steps: ${res.data.steps}`,
-      `Length: ${res.data.length.toFixed(2)} units`,
-      `Route: ${res.data.path.map(point => `(${point[0]},${point[1]})`).join(" -> ")}`
+      t("messages.pathFound"),
+      t("messages.steps", { value: res.data.steps }),
+      t("messages.length", { value: res.data.length.toFixed(2) }),
+      t("messages.route", {
+        value: res.data.path.map(point => `(${point[0]},${point[1]})`).join(" -> ")
+      })
     ].join("\n");
     box.classList.remove("hidden");
     if (warehouseData) {
       drawWarehouseMap("path-canvas", warehouseData, res.data.path, [sx, sy], [gx, gy]);
     }
-    toast("Path found");
+    toast(t("messages.pathFound"));
   } else {
-    box.textContent = `Error: ${res.error}`;
+    const message = localizeApiError(res.error || t("messages.pathRequestFailed"));
+    box.textContent = t("messages.error", { value: message });
     box.classList.remove("hidden");
     if (warehouseData) {
       drawWarehouseMap("path-canvas", warehouseData, null, [sx, sy], [gx, gy]);
     }
-    toast(res.error || "Path request failed", false);
+    toast(message, false);
   }
 }
 
@@ -307,7 +638,7 @@ async function optimisePickRoute() {
   const ids = raw.split(",").map(item => item.trim()).filter(Boolean);
 
   if (!ids.length) {
-    toast("Enter at least one item ID", false);
+    toast(t("messages.enterItemId"), false);
     return;
   }
 
@@ -320,17 +651,22 @@ async function optimisePickRoute() {
   if (res.success) {
     const data = res.data;
     box.textContent = [
-      `Robot: ${data.robot.name} (${data.robot.id})`,
-      `Stops: ${data.stops.map(stop => `${stop.item_id}@${stop.shelf_id}`).join(", ")}`,
-      `Distance: ${data.total_distance} units`,
-      `Route order: ${data.optimised_route.route.map(point => `(${point[0]},${point[1]})`).join(" -> ")}`
+      t("messages.robotLine", { name: data.robot.name, id: data.robot.id }),
+      t("messages.stopsLine", {
+        value: data.stops.map(stop => `${stop.item_id}@${stop.shelf_id}`).join(", ")
+      }),
+      t("messages.distanceLine", { value: data.total_distance }),
+      t("messages.routeOrder", {
+        value: data.optimised_route.route.map(point => `(${point[0]},${point[1]})`).join(" -> ")
+      })
     ].join("\n");
     box.classList.remove("hidden");
-    toast("Pick route optimized");
+    toast(t("messages.pickOptimized"));
   } else {
-    box.textContent = `Error: ${res.error}`;
+    const message = localizeApiError(res.error || t("messages.routeRequestFailed"));
+    box.textContent = t("messages.error", { value: message });
     box.classList.remove("hidden");
-    toast(res.error || "Route request failed", false);
+    toast(message, false);
   }
 }
 
@@ -348,7 +684,7 @@ async function loadItems() {
         <td>${item.quantity}</td>
         <td>${item.reorder_point}</td>
         <td style="font-family:var(--font-mono)">${item.location_id}</td>
-        <td><span class="badge ${low ? "badge-danger" : "badge-ok"}">${low ? "Low" : "OK"}</span></td>
+        <td><span class="badge ${low ? "badge-danger" : "badge-ok"}">${low ? t("item.low") : t("item.ok")}</span></td>
       </tr>
     `;
   }).join("");
@@ -388,7 +724,7 @@ async function loadRobots() {
 
         <div class="battery-bar-wrap">
           <div class="battery-bar-label">
-            <span>Battery</span>
+            <span>${t("robot.battery")}</span>
             <span>${robot.battery}%</span>
           </div>
           <div class="battery-bar">
@@ -397,15 +733,15 @@ async function loadRobots() {
         </div>
 
         <div class="robot-stats">
-          <span>Distance <b>${robot.total_distance}</b></span>
-          <span>Picks <b>${robot.total_picks}</b></span>
+          <span>${t("robot.distance")} <b>${robot.total_distance}</b></span>
+          <span>${t("robot.picks")} <b>${robot.total_picks}</b></span>
         </div>
 
         <div class="card-actions">
-          <button class="btn btn-ghost btn-sm" onclick="chargeRobot('${robot.id}')">Charge</button>
+          <button class="btn btn-ghost btn-sm" onclick="chargeRobot('${robot.id}')">${t("actions.charge")}</button>
         </div>
 
-        ${robot.error_message ? `<div style="margin-top:12px;color:#ffb0b0;font-size:12px">${robot.error_message}</div>` : ""}
+        ${robot.error_message ? `<div style="margin-top:12px;color:#ffb0b0;font-size:12px">${localizeApiError(robot.error_message)}</div>` : ""}
       </div>
     `;
   }).join("");
@@ -414,11 +750,11 @@ async function loadRobots() {
 async function chargeRobot(id) {
   const res = await api(`/api/robots/${id}/charge`, { method: "POST" });
   if (res.success) {
-    toast(`${res.data.name} charged to 100%`);
+    toast(t("messages.chargeSuccess", { name: res.data.name }));
     loadRobots();
     loadDashboard();
   } else {
-    toast(res.error || "Charge failed", false);
+    toast(localizeApiError(res.error || t("messages.chargeFailed")), false);
   }
 }
 
@@ -446,9 +782,34 @@ function switchPanel(name) {
   }
 }
 
+function setLanguage(language) {
+  currentLanguage = TRANSLATIONS[language] ? language : "en";
+  localStorage.setItem("smart-robo-nav-language", currentLanguage);
+  $("#language-select").value = currentLanguage;
+  applyTranslations();
+  checkHealth();
+  if (warehouseData) {
+    renderZoneAccess(warehouseData.zones || []);
+  }
+  loadDashboard();
+  loadItems();
+  loadRobots();
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  if (!TRANSLATIONS[currentLanguage]) {
+    currentLanguage = "en";
+  }
+
+  applyTranslations();
+  $("#language-select").value = currentLanguage;
+
   $$(".nav-btn").forEach(btn => {
     btn.addEventListener("click", () => switchPanel(btn.dataset.panel));
+  });
+
+  $("#language-select").addEventListener("change", event => {
+    setLanguage(event.target.value);
   });
 
   $("#find-path-btn").addEventListener("click", findPath);
@@ -456,7 +817,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("#refresh-btn").addEventListener("click", async () => {
     await checkHealth();
     await loadDashboard();
-    toast("Dashboard refreshed");
+    toast(t("messages.dashboardRefreshed"));
   });
 
   let searchTimer;

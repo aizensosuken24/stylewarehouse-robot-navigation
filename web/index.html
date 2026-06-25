@@ -11,21 +11,30 @@
     <div class="brand-lockup">
       <span class="brand-mark">SR</span>
       <div class="brand-copy">
-        <span class="brand-name">Smart-Robo Nav</span>
-        <span class="brand-subtitle">Warehouse control grid</span>
+        <span class="brand-name" data-i18n="brand.name">Smart-Robo Nav</span>
+        <span class="brand-subtitle" data-i18n="brand.subtitle">Warehouse control grid</span>
       </div>
     </div>
 
     <nav class="topbar-nav" aria-label="Primary">
-      <button class="nav-btn active" data-panel="dashboard">Dashboard</button>
-      <button class="nav-btn" data-panel="pathfinder">Pathfinder</button>
-      <button class="nav-btn" data-panel="inventory">Inventory</button>
-      <button class="nav-btn" data-panel="robots">Robots</button>
+      <button class="nav-btn active" data-panel="dashboard" data-i18n="nav.dashboard">Dashboard</button>
+      <button class="nav-btn" data-panel="pathfinder" data-i18n="nav.pathfinder">Pathfinder</button>
+      <button class="nav-btn" data-panel="inventory" data-i18n="nav.inventory">Inventory</button>
+      <button class="nav-btn" data-panel="robots" data-i18n="nav.robots">Robots</button>
     </nav>
+
+    <label class="language-switcher">
+      <span data-i18n="language.label">Language</span>
+      <select id="language-select" aria-label="Language selector">
+        <option value="en">English</option>
+        <option value="hi">हिंदी</option>
+        <option value="te">తెలుగు</option>
+      </select>
+    </label>
 
     <div class="status-pill">
       <span id="api-status" class="status-dot offline"></span>
-      <span id="api-label">Connecting</span>
+      <span id="api-label" data-i18n="status.connecting">Connecting</span>
     </div>
   </header>
 
@@ -33,44 +42,44 @@
     <section id="panel-dashboard" class="panel active">
       <div class="hero-band">
         <div class="hero-copy">
-          <p class="eyebrow">Ops overview</p>
-          <h1>Zone-gated warehouse routing</h1>
-          <p class="hero-text">
+          <p class="eyebrow" data-i18n="dashboard.eyebrow">Ops overview</p>
+          <h1 data-i18n="dashboard.title">Zone-gated warehouse routing</h1>
+          <p class="hero-text" data-i18n="dashboard.description">
             Every zone uses one controlled entry and one controlled exit. Paths now respect those gates and the obstacle grid inside and outside each zone.
           </p>
         </div>
         <div class="hero-meta">
           <div class="meta-chip">
-            <span class="meta-label">App</span>
-            <span class="meta-value">Smart-Robo Nav</span>
+            <span class="meta-label" data-i18n="dashboard.meta.app">App</span>
+            <span class="meta-value" data-i18n="brand.name">Smart-Robo Nav</span>
           </div>
           <div class="meta-chip">
-            <span class="meta-label">Routing</span>
-            <span class="meta-value">A* + gated zones</span>
+            <span class="meta-label" data-i18n="dashboard.meta.routing">Routing</span>
+            <span class="meta-value" data-i18n="dashboard.meta.routingValue">A* + gated zones</span>
           </div>
-          <button class="btn btn-primary" id="refresh-btn">Reload data</button>
+          <button class="btn btn-primary" id="refresh-btn" data-i18n="actions.reload">Reload data</button>
         </div>
       </div>
 
       <div class="stats-grid" id="stats-row">
         <div class="stat-card">
-          <span class="stat-label">Robots online</span>
+          <span class="stat-label" data-i18n="stats.robotsOnline">Robots online</span>
           <span class="stat-val" id="stat-robots">--</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">Idle now</span>
+          <span class="stat-label" data-i18n="stats.idleNow">Idle now</span>
           <span class="stat-val" id="stat-idle">--</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">Avg battery</span>
+          <span class="stat-label" data-i18n="stats.avgBattery">Avg battery</span>
           <span class="stat-val" id="stat-battery">--%</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">Tracked SKUs</span>
+          <span class="stat-label" data-i18n="stats.trackedSkus">Tracked SKUs</span>
           <span class="stat-val" id="stat-items">--</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">Low stock</span>
+          <span class="stat-label" data-i18n="stats.lowStock">Low stock</span>
           <span class="stat-val" id="stat-lowstock">--</span>
         </div>
       </div>
@@ -79,17 +88,17 @@
         <section class="surface">
           <div class="surface-header">
             <div>
-              <h2>Warehouse map</h2>
-              <p class="section-copy">Zone entry and exit gates are shown directly on the grid.</p>
+              <h2 data-i18n="map.title">Warehouse map</h2>
+              <p class="section-copy" data-i18n="map.description">Zone entry and exit gates are shown directly on the grid.</p>
             </div>
           </div>
           <canvas id="map-canvas" width="520" height="520"></canvas>
           <div class="legend-row">
-            <span class="legend-item"><i class="swatch swatch-zone"></i> Zones</span>
-            <span class="legend-item"><i class="swatch swatch-obstacle"></i> Obstacles</span>
-            <span class="legend-item"><i class="swatch swatch-entry"></i> Entry</span>
-            <span class="legend-item"><i class="swatch swatch-exit"></i> Exit</span>
-            <span class="legend-item"><i class="swatch swatch-robot"></i> Robots</span>
+            <span class="legend-item"><i class="swatch swatch-zone"></i><span data-i18n="legend.zones">Zones</span></span>
+            <span class="legend-item"><i class="swatch swatch-obstacle"></i><span data-i18n="legend.obstacles">Obstacles</span></span>
+            <span class="legend-item"><i class="swatch swatch-entry"></i><span data-i18n="legend.entry">Entry</span></span>
+            <span class="legend-item"><i class="swatch swatch-exit"></i><span data-i18n="legend.exit">Exit</span></span>
+            <span class="legend-item"><i class="swatch swatch-robot"></i><span data-i18n="legend.robots">Robots</span></span>
           </div>
         </section>
 
@@ -97,8 +106,8 @@
           <section class="surface">
             <div class="surface-header">
               <div>
-                <h2>Fleet status</h2>
-                <p class="section-copy">Live robot state, battery, and location.</p>
+                <h2 data-i18n="fleet.title">Fleet status</h2>
+                <p class="section-copy" data-i18n="fleet.description">Live robot state, battery, and location.</p>
               </div>
             </div>
             <div id="fleet-list" class="robot-list"></div>
@@ -107,8 +116,8 @@
           <section class="surface">
             <div class="surface-header">
               <div>
-                <h2>Zone access</h2>
-                <p class="section-copy">Only these gates allow movement across zone boundaries.</p>
+                <h2 data-i18n="zones.title">Zone access</h2>
+                <p class="section-copy" data-i18n="zones.description">Only these gates allow movement across zone boundaries.</p>
               </div>
             </div>
             <div id="zone-access-list" class="zone-access-list"></div>
@@ -120,8 +129,8 @@
     <section id="panel-pathfinder" class="panel">
       <div class="panel-header">
         <div>
-          <p class="eyebrow">Routing</p>
-          <h1>Pathfinder</h1>
+          <p class="eyebrow" data-i18n="pathfinder.eyebrow">Routing</p>
+          <h1 data-i18n="pathfinder.title">Pathfinder</h1>
         </div>
       </div>
 
@@ -129,37 +138,37 @@
         <section class="surface">
           <div class="surface-header">
             <div>
-              <h2>Find path</h2>
-              <p class="section-copy">The route respects zone gates and obstacles automatically.</p>
+              <h2 data-i18n="pathfinder.findTitle">Find path</h2>
+              <p class="section-copy" data-i18n="pathfinder.findDescription">The route respects zone gates and obstacles automatically.</p>
             </div>
           </div>
           <div class="form-grid">
             <label>
-              <span>Start X</span>
+              <span data-i18n="pathfinder.startX">Start X</span>
               <input type="number" id="sx" value="0" min="0" max="19" />
             </label>
             <label>
-              <span>Start Y</span>
+              <span data-i18n="pathfinder.startY">Start Y</span>
               <input type="number" id="sy" value="0" min="0" max="19" />
             </label>
             <label>
-              <span>Goal X</span>
+              <span data-i18n="pathfinder.goalX">Goal X</span>
               <input type="number" id="gx" value="8" min="0" max="19" />
             </label>
             <label>
-              <span>Goal Y</span>
+              <span data-i18n="pathfinder.goalY">Goal Y</span>
               <input type="number" id="gy" value="2" min="0" max="19" />
             </label>
           </div>
-          <button class="btn btn-primary" id="find-path-btn">Find path</button>
+          <button class="btn btn-primary" id="find-path-btn" data-i18n="actions.findPath">Find path</button>
           <div id="path-result" class="result-box hidden"></div>
         </section>
 
         <section class="surface">
           <div class="surface-header">
             <div>
-              <h2>Path visual</h2>
-              <p class="section-copy">Start, goal, and routed cells are plotted on the same gated map.</p>
+              <h2 data-i18n="pathfinder.visualTitle">Path visual</h2>
+              <p class="section-copy" data-i18n="pathfinder.visualDescription">Start, goal, and routed cells are plotted on the same gated map.</p>
             </div>
           </div>
           <canvas id="path-canvas" width="520" height="520"></canvas>
@@ -169,15 +178,15 @@
       <section class="surface">
         <div class="surface-header">
           <div>
-            <h2>Pick route optimizer</h2>
-            <p class="section-copy">Orders stops using the live traversable distance, not straight-line distance.</p>
+            <h2 data-i18n="pick.title">Pick route optimizer</h2>
+            <p class="section-copy" data-i18n="pick.description">Orders stops using the live traversable distance, not straight-line distance.</p>
           </div>
         </div>
         <label class="field-block">
-          <span>Item IDs</span>
-          <input type="text" id="pick-items" placeholder="ITM001, ITM003, ITM005" />
+          <span data-i18n="pick.itemIds">Item IDs</span>
+          <input type="text" id="pick-items" placeholder="ITM001, ITM003, ITM005" data-i18n-placeholder="pick.placeholder" />
         </label>
-        <button class="btn btn-primary" id="pick-btn">Optimize route</button>
+        <button class="btn btn-primary" id="pick-btn" data-i18n="actions.optimizeRoute">Optimize route</button>
         <div id="pick-result" class="result-box hidden"></div>
       </section>
     </section>
@@ -185,23 +194,23 @@
     <section id="panel-inventory" class="panel">
       <div class="panel-header">
         <div>
-          <p class="eyebrow">Stock</p>
-          <h1>Inventory</h1>
+          <p class="eyebrow" data-i18n="inventory.eyebrow">Stock</p>
+          <h1 data-i18n="inventory.title">Inventory</h1>
         </div>
-        <input type="text" id="item-search" placeholder="Search items" class="search-input" />
+        <input type="text" id="item-search" placeholder="Search items" class="search-input" data-i18n-placeholder="inventory.searchPlaceholder" />
       </div>
 
       <section class="surface">
         <table class="data-table" id="items-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Qty</th>
-              <th>Reorder</th>
-              <th>Location</th>
-              <th>Status</th>
+              <th data-i18n="table.id">ID</th>
+              <th data-i18n="table.name">Name</th>
+              <th data-i18n="table.category">Category</th>
+              <th data-i18n="table.qty">Qty</th>
+              <th data-i18n="table.reorder">Reorder</th>
+              <th data-i18n="table.location">Location</th>
+              <th data-i18n="table.status">Status</th>
             </tr>
           </thead>
           <tbody id="items-tbody"></tbody>
@@ -213,8 +222,8 @@
     <section id="panel-robots" class="panel">
       <div class="panel-header">
         <div>
-          <p class="eyebrow">Fleet</p>
-          <h1>Robot fleet</h1>
+          <p class="eyebrow" data-i18n="robots.eyebrow">Fleet</p>
+          <h1 data-i18n="robots.title">Robot fleet</h1>
         </div>
       </div>
       <div id="robot-cards" class="robot-grid"></div>
