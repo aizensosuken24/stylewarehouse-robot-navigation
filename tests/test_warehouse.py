@@ -1,4 +1,5 @@
 """Tests for warehouse zone gate rules."""
+
 import json
 import sys
 from pathlib import Path

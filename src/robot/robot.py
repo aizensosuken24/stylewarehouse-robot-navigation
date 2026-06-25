@@ -1,6 +1,7 @@
 """
 Robot module: Represents a warehouse robot with state, movement, and battery management.
 """
+
 import math
 from enum import Enum
 from typing import List, Optional, Tuple
@@ -21,13 +22,14 @@ class Robot:
     and task execution.
     """
 
-    BATTERY_PER_MOVE = 0.5       # % battery consumed per grid cell
-    BATTERY_PER_PICK = 1.0       # % battery consumed per pick action
-    BATTERY_CHARGE_RATE = 2.0    # % battery charged per second (simulated)
-    LOW_BATTERY_THRESHOLD = 20.0 # % battery to trigger return-to-charge
+    BATTERY_PER_MOVE = 0.5  # % battery consumed per grid cell
+    BATTERY_PER_PICK = 1.0  # % battery consumed per pick action
+    BATTERY_CHARGE_RATE = 2.0  # % battery charged per second (simulated)
+    LOW_BATTERY_THRESHOLD = 20.0  # % battery to trigger return-to-charge
 
-    def __init__(self, robot_id: str, name: str,
-                 x: int = 0, y: int = 0, battery: float = 100.0):
+    def __init__(
+        self, robot_id: str, name: str, x: int = 0, y: int = 0, battery: float = 100.0
+    ):
         self.id = robot_id
         self.name = name
         self.x = x
@@ -70,9 +72,7 @@ class Robot:
         required_battery = 0.0
         previous = self.position
         for step in actual_steps:
-            required_battery += (
-                math.dist(previous, step) * self.BATTERY_PER_MOVE
-            )
+            required_battery += math.dist(previous, step) * self.BATTERY_PER_MOVE
             previous = step
 
         if self.battery < required_battery:
@@ -89,8 +89,7 @@ class Robot:
             self.x, self.y = step
             step_distance = math.dist(previous, step)
             self.battery = max(
-                0.0,
-                self.battery - (step_distance * self.BATTERY_PER_MOVE)
+                0.0, self.battery - (step_distance * self.BATTERY_PER_MOVE)
             )
             self.total_distance += step_distance
             previous = step
@@ -143,8 +142,11 @@ class Robot:
             "total_distance": round(self.total_distance, 1),
             "total_picks": self.total_picks,
             "error_message": self.error_message,
-            "current_task": self.current_task
+            "current_task": self.current_task,
         }
 
     def __repr__(self):
-        return f"Robot({self.id}, {self.name}, pos=({self.x},{self.y}), battery={self.battery:.0f}%)"
+        return (
+            f"Robot({self.id}, {self.name}, "
+            f"pos=({self.x},{self.y}), battery={self.battery:.0f}%)"
+        )

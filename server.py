@@ -2,6 +2,7 @@
 Smart-Robo Nav API Server
 Deployed on Render (backend).
 """
+
 import math
 import sys
 from pathlib import Path
@@ -26,7 +27,7 @@ app = Flask(__name__)
 CORS(app, origins=config.ALLOWED_ORIGINS, supports_credentials=True)
 
 # ── Initialise warehouse ───────────────────────────────────────────────────────
-layout    = WarehouseLayout(config.WAREHOUSE_LAYOUT_PATH)
+layout = WarehouseLayout(config.WAREHOUSE_LAYOUT_PATH)
 inventory = InventoryManager(config.ITEM_CATALOGUE_PATH)
 
 # Pathfinder
@@ -40,13 +41,15 @@ pathfinder = AStarPathfinder(
 # Fleet
 fleet = FleetManager()
 for rb in layout.robots_initial:
-    fleet.add_robot(Robot(
-        robot_id=rb["id"],
-        name=rb["name"],
-        x=rb["x"],
-        y=rb["y"],
-        battery=rb.get("battery", 100.0)
-    ))
+    fleet.add_robot(
+        Robot(
+            robot_id=rb["id"],
+            name=rb["name"],
+            x=rb["x"],
+            y=rb["y"],
+            battery=rb.get("battery", 100.0),
+        )
+    )
 
 
 def _parse_int_arg(name: str, default: int, minimum: Optional[int] = None):
@@ -72,9 +75,7 @@ def _parse_point(value, field_name: str):
         x = int(value[0])
         y = int(value[1])
     except (TypeError, ValueError):
-        return None, error_response(
-            f"Coordinates in '{field_name}' must be integers"
-        )
+        return None, error_response(f"Coordinates in '{field_name}' must be integers")
 
     return (x, y), None
 
@@ -100,7 +101,10 @@ def _solve_route(start, stops):
     result = solve_tsp(start, stops, improve=True, distance_fn=distance_fn)
     if not math.isfinite(result["total_distance"]):
         return None, error_response(
-            "At least one stop is unreachable with the current zone gates and obstacles",
+            (
+                "At least one stop is unreachable with the current "
+                "zone gates and obstacles"
+            ),
             409,
         )
     return result, None
@@ -128,7 +132,7 @@ def get_warehouse():
 # ── Inventory ──────────────────────────────────────────────────────────────────
 @app.route("/api/items", methods=["GET"])
 def get_items():
-    query   = request.args.get("q", "")
+    query = request.args.get("q", "")
     page, error = _parse_int_arg("page", 1, minimum=1)
     if error:
         return error
@@ -157,10 +161,9 @@ def get_low_stock():
 # ── Robots ─────────────────────────────────────────────────────────────────────
 @app.route("/api/robots", methods=["GET"])
 def get_robots():
-    return success_response({
-        "robots": fleet.all_robots_status(),
-        "summary": fleet.fleet_summary()
-    })
+    return success_response(
+        {"robots": fleet.all_robots_status(), "summary": fleet.fleet_summary()}
+    )
 
 
 @app.route("/api/robots/<robot_id>", methods=["GET"])
@@ -200,11 +203,13 @@ def find_path():
     if path is None:
         return error_response("No path found between the given positions", 404)
 
-    return success_response({
-        "path": path,
-        "length": pathfinder.path_length(path),
-        "steps": max(0, len(path) - 1)
-    })
+    return success_response(
+        {
+            "path": path,
+            "length": pathfinder.path_length(path),
+            "steps": max(0, len(path) - 1),
+        }
+    )
 
 
 # ── Route optimisation (TSP) ───────────────────────────────────────────────────
@@ -214,7 +219,7 @@ def optimise_route():
     POST /api/route
     Body: { "start": [x, y], "stops": [[x1,y1], [x2,y2], ...] }
     """
-    body  = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True) or {}
     start_t, error = _parse_point(body.get("start"), "start")
     if error:
         return error
@@ -245,7 +250,7 @@ def create_pick_order():
     Body: { "item_ids": ["ITM001", "ITM002"], "robot_id": "R1" (optional) }
     Resolves item locations, optimises route, assigns nearest robot.
     """
-    body     = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True) or {}
     item_ids = body.get("item_ids", [])
 
     if not isinstance(item_ids, list) or not item_ids:
@@ -292,12 +297,14 @@ def create_pick_order():
     if error:
         return error
 
-    return success_response({
-        "robot": robot.to_dict(),
-        "stops": stops,
-        "optimised_route": tsp,
-        "total_distance": tsp["total_distance"]
-    })
+    return success_response(
+        {
+            "robot": robot.to_dict(),
+            "stops": stops,
+            "optimised_route": tsp,
+            "total_distance": tsp["total_distance"],
+        }
+    )
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────

@@ -2,17 +2,22 @@
 TSP (Travelling Salesman Problem) solver for multi-stop warehouse route optimization.
 Uses nearest-neighbour heuristic with 2-opt improvement.
 """
+
 from typing import Callable, List, Tuple
 import math
 
 
 def euclidean_distance(a: Tuple[int, int], b: Tuple[int, int]) -> float:
-    return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 
-def nearest_neighbour_tsp(start: Tuple[int, int],
-                          stops: List[Tuple[int, int]],
-                          distance_fn: Callable[[Tuple[int, int], Tuple[int, int]], float] = euclidean_distance) -> List[Tuple[int, int]]:
+def nearest_neighbour_tsp(
+    start: Tuple[int, int],
+    stops: List[Tuple[int, int]],
+    distance_fn: Callable[
+        [Tuple[int, int], Tuple[int, int]], float
+    ] = euclidean_distance,
+) -> List[Tuple[int, int]]:
     """
     Greedy nearest-neighbour TSP heuristic.
     Returns ordered list of stops (not including start).
@@ -36,7 +41,9 @@ def nearest_neighbour_tsp(start: Tuple[int, int],
 def route_distance(
     start: Tuple[int, int],
     route: List[Tuple[int, int]],
-    distance_fn: Callable[[Tuple[int, int], Tuple[int, int]], float] = euclidean_distance,
+    distance_fn: Callable[
+        [Tuple[int, int], Tuple[int, int]], float
+    ] = euclidean_distance,
 ) -> float:
     """Calculate the round-trip distance for a route that starts and ends at start."""
     if not route:
@@ -44,15 +51,18 @@ def route_distance(
 
     full_path = [start] + list(route) + [start]
     return sum(
-        distance_fn(full_path[i], full_path[i + 1])
-        for i in range(len(full_path) - 1)
+        distance_fn(full_path[i], full_path[i + 1]) for i in range(len(full_path) - 1)
     )
 
 
-def two_opt_improve(route: List[Tuple[int, int]],
-                    start: Tuple[int, int],
-                    distance_fn: Callable[[Tuple[int, int], Tuple[int, int]], float] = euclidean_distance,
-                    max_iterations: int = 100) -> List[Tuple[int, int]]:
+def two_opt_improve(
+    route: List[Tuple[int, int]],
+    start: Tuple[int, int],
+    distance_fn: Callable[
+        [Tuple[int, int], Tuple[int, int]], float
+    ] = euclidean_distance,
+    max_iterations: int = 100,
+) -> List[Tuple[int, int]]:
     """
     2-opt local search improvement for TSP route.
     Reverses sub-sequences to reduce total distance.
@@ -73,8 +83,8 @@ def two_opt_improve(route: List[Tuple[int, int]],
             for j in range(i + 1, len(best_route)):
                 candidate = (
                     best_route[:i]
-                    + list(reversed(best_route[i:j + 1]))
-                    + best_route[j + 1:]
+                    + list(reversed(best_route[i : j + 1]))
+                    + best_route[j + 1 :]
                 )
                 candidate_distance = route_distance(start, candidate, distance_fn)
 
@@ -89,10 +99,14 @@ def two_opt_improve(route: List[Tuple[int, int]],
     return best_route
 
 
-def solve_tsp(start: Tuple[int, int],
-              stops: List[Tuple[int, int]],
-              improve: bool = True,
-              distance_fn: Callable[[Tuple[int, int], Tuple[int, int]], float] = euclidean_distance) -> dict:
+def solve_tsp(
+    start: Tuple[int, int],
+    stops: List[Tuple[int, int]],
+    improve: bool = True,
+    distance_fn: Callable[
+        [Tuple[int, int], Tuple[int, int]], float
+    ] = euclidean_distance,
+) -> dict:
     """
     Solve the TSP for warehouse pick route.
 
@@ -119,5 +133,5 @@ def solve_tsp(start: Tuple[int, int],
         "route": route,
         "total_distance": round(total_dist, 2),
         "num_stops": len(route),
-        "start": start
+        "start": start,
     }

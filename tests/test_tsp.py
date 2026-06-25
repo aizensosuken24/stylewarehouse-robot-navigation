@@ -1,14 +1,14 @@
 """Tests for TSP solver."""
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import pytest
 from src.navigation.tsp_solver import (
-    solve_tsp,
+    euclidean_distance,
     nearest_neighbour_tsp,
-    two_opt_improve,
-    euclidean_distance
+    solve_tsp,
 )
 
 
@@ -69,7 +69,7 @@ class TestSolveTSP:
 
     def test_improve_does_not_increase_distance(self):
         stops = [(9, 0), (0, 9), (9, 9), (0, 0), (5, 5)]
-        r_no  = solve_tsp((0, 0), stops, improve=False)
+        r_no = solve_tsp((0, 0), stops, improve=False)
         r_yes = solve_tsp((0, 0), stops, improve=True)
         assert r_yes["total_distance"] <= r_no["total_distance"] + 1e-6
 

@@ -1,6 +1,7 @@
 """
 UI helpers: standardized API response formatting.
 """
+
 from typing import Any
 from flask import jsonify
 
@@ -33,5 +34,5 @@ def paginate(items: list, page: int = 1, per_page: int = 20) -> dict:
         "total": total,
         "page": page,
         "per_page": per_page,
-        "pages": max(1, (total + per_page - 1) // per_page)
+        "pages": max(1, (total + per_page - 1) // per_page),
     }

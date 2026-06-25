@@ -1,6 +1,8 @@
 """Tests for Robot and FleetManager."""
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
@@ -17,7 +19,7 @@ def robot():
 def fleet():
     fm = FleetManager()
     fm.add_robot(Robot("R1", "Alpha", x=0, y=0, battery=100.0))
-    fm.add_robot(Robot("R2", "Beta",  x=10, y=10, battery=85.0))
+    fm.add_robot(Robot("R2", "Beta", x=10, y=10, battery=85.0))
     fm.add_robot(Robot("R3", "Gamma", x=5, y=5, battery=15.0))  # Low battery
     return fm
 

@@ -1,6 +1,7 @@
 """
 Navigation module: A* pathfinding for warehouse robot navigation.
 """
+
 import heapq
 import math
 from typing import Callable, Iterable, List, Optional, Set, Tuple
@@ -12,9 +13,9 @@ class Node:
     def __init__(self, x: int, y: int, g: float = 0, h: float = 0, parent=None):
         self.x = x
         self.y = y
-        self.g = g          # Cost from start
-        self.h = h          # Heuristic to goal
-        self.f = g + h      # Total estimated cost
+        self.g = g  # Cost from start
+        self.h = h  # Heuristic to goal
+        self.f = g + h  # Total estimated cost
         self.parent = parent
 
     def __lt__(self, other):
@@ -39,15 +40,25 @@ class AStarPathfinder:
     """
 
     DIRECTIONS_4 = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-    DIRECTIONS_8 = [(0, 1), (1, 0), (0, -1), (-1, 0),
-                    (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    DIRECTIONS_8 = [
+        (0, 1),
+        (1, 0),
+        (0, -1),
+        (-1, 0),
+        (1, 1),
+        (1, -1),
+        (-1, 1),
+        (-1, -1),
+    ]
 
-    def __init__(self, grid_width: int, grid_height: int,
-                 obstacles: Optional[Iterable[Tuple[int, int]]] = None,
-                 allow_diagonal: bool = False,
-                 can_move: Optional[
-                     Callable[[Tuple[int, int], Tuple[int, int]], bool]
-                 ] = None):
+    def __init__(
+        self,
+        grid_width: int,
+        grid_height: int,
+        obstacles: Optional[Iterable[Tuple[int, int]]] = None,
+        allow_diagonal: bool = False,
+        can_move: Optional[Callable[[Tuple[int, int], Tuple[int, int]], bool]] = None,
+    ):
         self.width = grid_width
         self.height = grid_height
         self.obstacles: Set[Tuple[int, int]] = obstacles or set()
@@ -78,12 +89,15 @@ class AStarPathfinder:
 
     def is_valid(self, x: int, y: int) -> bool:
         """Check if a cell is within bounds and not an obstacle."""
-        return (0 <= x < self.width and
-                0 <= y < self.height and
-                (x, y) not in self.obstacles)
+        return (
+            0 <= x < self.width
+            and 0 <= y < self.height
+            and (x, y) not in self.obstacles
+        )
 
-    def find_path(self, start: Tuple[int, int],
-                  goal: Tuple[int, int]) -> Optional[List[Tuple[int, int]]]:
+    def find_path(
+        self, start: Tuple[int, int], goal: Tuple[int, int]
+    ) -> Optional[List[Tuple[int, int]]]:
         """
         Find shortest path from start to goal using A*.
         Returns list of (x, y) tuples or None if no path exists.
@@ -158,7 +172,7 @@ class AStarPathfinder:
             return 0.0
         total = 0.0
         for i in range(1, len(path)):
-            dx = path[i][0] - path[i-1][0]
-            dy = path[i][1] - path[i-1][1]
-            total += (dx*dx + dy*dy) ** 0.5
+            dx = path[i][0] - path[i - 1][0]
+            dy = path[i][1] - path[i - 1][1]
+            total += (dx * dx + dy * dy) ** 0.5
         return total

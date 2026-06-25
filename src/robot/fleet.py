@@ -1,6 +1,7 @@
 """
 Fleet manager: manages multiple robots and task assignment.
 """
+
 from typing import List, Optional, Dict
 from .robot import Robot, RobotStatus
 
@@ -30,15 +31,14 @@ class FleetManager:
                 return robot
         return None
 
-    def get_nearest_available_robot(self,
-                                    target_x: int,
-                                    target_y: int) -> Optional[Robot]:
+    def get_nearest_available_robot(
+        self, target_x: int, target_y: int
+    ) -> Optional[Robot]:
         """Return nearest available robot to target position."""
         available = [r for r in self.robots.values() if r.is_available]
         if not available:
             return None
-        return min(available,
-                   key=lambda r: abs(r.x - target_x) + abs(r.y - target_y))
+        return min(available, key=lambda r: abs(r.x - target_x) + abs(r.y - target_y))
 
     def all_robots_status(self) -> List[dict]:
         return [r.to_dict() for r in self.robots.values()]
@@ -53,7 +53,7 @@ class FleetManager:
             "charging": sum(1 for r in robots if r.status == RobotStatus.CHARGING),
             "error": sum(1 for r in robots if r.status == RobotStatus.ERROR),
             "low_battery": sum(1 for r in robots if r.is_low_battery),
-            "average_battery": round(
-                sum(r.battery for r in robots) / len(robots), 1
-            ) if robots else 0
+            "average_battery": (
+                round(sum(r.battery for r in robots) / len(robots), 1) if robots else 0
+            ),
         }

@@ -1,6 +1,7 @@
 """
 Warehouse module: Loads and manages warehouse layout, shelves, and inventory.
 """
+
 import csv
 import json
 from pathlib import Path
@@ -27,7 +28,7 @@ class Shelf:
             "x": self.x,
             "y": self.y,
             "capacity": self.capacity,
-            "item_count": len(self.items)
+            "item_count": len(self.items),
         }
 
 
@@ -70,7 +71,7 @@ class WarehouseLayout:
                 zone=s["zone"],
                 x=s["x"],
                 y=s["y"],
-                capacity=s.get("capacity", 200)
+                capacity=s.get("capacity", 200),
             )
             self.shelves[s["id"]] = shelf
 
@@ -145,7 +146,7 @@ class WarehouseLayout:
             "shelves": [s.to_dict() for s in self.shelves.values()],
             "obstacles": [{"x": x, "y": y} for x, y in self.obstacles],
             "charging_stations": self.charging_stations,
-            "robots": self.robots_initial
+            "robots": self.robots_initial,
         }
 
 
@@ -171,7 +172,7 @@ class InventoryManager:
                     "location_id": row["location_id"],
                     "quantity": int(row["quantity"]),
                     "reorder_point": int(row["reorder_point"]),
-                    "supplier": row["supplier"]
+                    "supplier": row["supplier"],
                 }
 
     def get_item(self, item_id: str) -> Optional[dict]:
@@ -184,13 +185,15 @@ class InventoryManager:
     def search_items(self, query: str) -> List[dict]:
         q = query.lower()
         return [
-            item for item in self.items.values()
+            item
+            for item in self.items.values()
             if q in item["name"].lower() or q in item["category"].lower()
         ]
 
     def get_low_stock_items(self) -> List[dict]:
         return [
-            item for item in self.items.values()
+            item
+            for item in self.items.values()
             if item["quantity"] <= item["reorder_point"]
         ]
 
