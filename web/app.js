@@ -1,7 +1,3 @@
-/* ── Config ────────────────────────────────────────────────── */
-// In production, Vercel injects VITE_API_URL at build time.
-// For plain HTML/JS we fall back to the env comment below;
-// replace the localhost URL with your Render service URL.
 const API_BASE =
   (typeof process !== "undefined" && process.env?.VITE_API_URL) ||
   window.ENV_API_URL ||
@@ -9,22 +5,20 @@ const API_BASE =
     ? "http://localhost:5000"
     : "https://stylewarehouse-robot-navigation-1.onrender.com");
 
-/* ── State ─────────────────────────────────────────────────── */
-let warehouseData  = null;
-let itemsPage      = 1;
-let itemsQuery     = "";
-let pathData       = null;
+let warehouseData = null;
+let itemsPage = 1;
+let itemsQuery = "";
 
-/* ── Utility ────────────────────────────────────────────────── */
-const $  = (sel, ctx = document) => ctx.querySelector(sel);
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
 function toast(msg, ok = true) {
   const el = $("#toast");
   el.textContent = msg;
   el.className = "toast";
-  el.style.borderColor = ok ? "var(--accent2)" : "var(--danger)";
-  setTimeout(() => el.classList.add("hidden"), 3000);
+  el.style.borderColor = ok ? "rgba(49, 196, 141, 0.35)" : "rgba(248, 113, 113, 0.35)";
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.add("hidden"), 2600);
 }
 
 async function api(path, opts = {}) {
@@ -35,21 +29,22 @@ async function api(path, opts = {}) {
       ...opts
     });
     return await res.json();
-  } catch (e) {
-    console.error("API error:", e);
-    return { success: false, error: e.message };
+  } catch (error) {
+    console.error("API error:", error);
+    return { success: false, error: error.message };
   }
 }
 
 function statusBadge(status) {
   const map = {
-    idle:      ["badge-ok",    "Idle"],
-    moving:    ["badge-warn",  "Moving"],
-    picking:   ["badge-warn",  "Picking"],
-    charging:  ["badge-ok",    "Charging"],
-    error:     ["badge-danger","Error"],
-    returning: ["badge-warn",  "Returning"]
+    idle: ["badge-ok", "Idle"],
+    moving: ["badge-warn", "Moving"],
+    picking: ["badge-warn", "Picking"],
+    charging: ["badge-ok", "Charging"],
+    error: ["badge-danger", "Error"],
+    returning: ["badge-warn", "Returning"]
   };
+
   const [cls, label] = map[status] || ["badge-warn", status];
   return `<span class="badge ${cls}">${label}</span>`;
 }
@@ -60,21 +55,24 @@ function batteryClass(pct) {
   return "low";
 }
 
-/* ── Health check ───────────────────────────────────────────── */
+function pointText(point) {
+  return `${point[0]},${point[1]}`;
+}
+
 async function checkHealth() {
-  const dot   = $("#api-status");
+  const dot = $("#api-status");
   const label = $("#api-label");
-  const res   = await api("/health");
+  const res = await api("/health");
+
   if (res.success) {
-    dot.className   = "status-dot online";
-    label.textContent = "API Online";
+    dot.className = "status-dot online";
+    label.textContent = "API online";
   } else {
-    dot.className   = "status-dot offline";
-    label.textContent = "API Offline";
+    dot.className = "status-dot offline";
+    label.textContent = "API offline";
   }
 }
 
-/* ── Dashboard ──────────────────────────────────────────────── */
 async function loadDashboard() {
   const [robotRes, itemRes, lowRes, whRes] = await Promise.all([
     api("/api/robots"),
@@ -84,134 +82,197 @@ async function loadDashboard() {
   ]);
 
   if (robotRes.success) {
-    const s = robotRes.data.summary;
-    $("#stat-robots").textContent  = s.total;
-    $("#stat-idle").textContent    = s.idle;
-    $("#stat-battery").textContent = `${s.average_battery}%`;
+    const summary = robotRes.data.summary;
+    $("#stat-robots").textContent = summary.total;
+    $("#stat-idle").textContent = summary.idle;
+    $("#stat-battery").textContent = `${summary.average_battery}%`;
     renderFleetList(robotRes.data.robots);
   }
-  if (itemRes.success)  $("#stat-items").textContent    = itemRes.data.total;
-  if (lowRes.success)   $("#stat-lowstock").textContent = lowRes.data.length;
+
+  if (itemRes.success) {
+    $("#stat-items").textContent = itemRes.data.total;
+  }
+
+  if (lowRes.success) {
+    $("#stat-lowstock").textContent = lowRes.data.length;
+  }
 
   if (whRes.success) {
     warehouseData = whRes.data;
     drawWarehouseMap("map-canvas", warehouseData, null);
+    renderZoneAccess(warehouseData.zones || []);
   }
 }
 
 function renderFleetList(robots) {
   const el = $("#fleet-list");
-  el.innerHTML = robots.map(r => `
+  el.innerHTML = robots.map(robot => `
     <div class="robot-row">
       <div>
-        <div style="font-weight:600">${r.name}</div>
-        <div style="color:var(--muted);font-size:11px">${r.id} · ${r.x},${r.y}</div>
+        <div class="robot-title">${robot.name}</div>
+        <div class="robot-meta">${robot.id} | ${robot.x},${robot.y}</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
-        ${statusBadge(r.status)}
-        <span style="font-size:12px;color:${r.battery>20?'var(--accent2)':'var(--danger)'}">${r.battery}%</span>
+        ${statusBadge(robot.status)}
+        <span class="robot-meta" style="color:${robot.battery > 20 ? "#7ce3bb" : "#ffb0b0"}">${robot.battery}%</span>
       </div>
     </div>
   `).join("");
 }
 
-/* ── Warehouse map canvas ───────────────────────────────────── */
+function renderZoneAccess(zones) {
+  const el = $("#zone-access-list");
+  el.innerHTML = zones.map(zone => `
+    <div class="zone-row">
+      <div>
+        <div class="zone-title">Zone ${zone.id} <span class="zone-meta">${zone.name}</span></div>
+        <div class="zone-gates">
+          <span>Entry ${pointText(zone.entry)}</span>
+          <span>Exit ${pointText(zone.exit)}</span>
+        </div>
+      </div>
+      <span class="badge badge-warn">Gated</span>
+    </div>
+  `).join("");
+}
+
 function drawWarehouseMap(canvasId, wh, path, start, goal) {
   const canvas = $(`#${canvasId}`);
-  const ctx    = canvas.getContext("2d");
-  const W      = canvas.width;
-  const H      = canvas.height;
-  const COLS   = wh.width  || 20;
-  const ROWS   = wh.height || 20;
-  const cw     = W / COLS;
-  const ch     = H / ROWS;
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const cols = wh.width || 20;
+  const rows = wh.height || 20;
+  const cellWidth = width / cols;
+  const cellHeight = height / rows;
 
-  ctx.clearRect(0, 0, W, H);
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#09111a";
+  ctx.fillRect(0, 0, width, height);
 
-  // Grid
-  ctx.strokeStyle = "#1e242c";
-  ctx.lineWidth   = 0.5;
-  for (let x = 0; x <= COLS; x++) {
-    ctx.beginPath(); ctx.moveTo(x*cw, 0); ctx.lineTo(x*cw, H); ctx.stroke();
+  ctx.strokeStyle = "rgba(133, 164, 203, 0.16)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= cols; x += 1) {
+    ctx.beginPath();
+    ctx.moveTo(x * cellWidth, 0);
+    ctx.lineTo(x * cellWidth, height);
+    ctx.stroke();
   }
-  for (let y = 0; y <= ROWS; y++) {
-    ctx.beginPath(); ctx.moveTo(0, y*ch); ctx.lineTo(W, y*ch); ctx.stroke();
-  }
-
-  // Zones
-  (wh.zones || []).forEach(z => {
-    ctx.fillStyle = z.color + "22";
-    ctx.fillRect(z.x*cw, z.y*ch, z.width*cw, z.height*ch);
-    ctx.strokeStyle = z.color + "88";
-    ctx.lineWidth   = 1;
-    ctx.strokeRect(z.x*cw, z.y*ch, z.width*cw, z.height*ch);
-    ctx.fillStyle   = z.color;
-    ctx.font        = `bold ${Math.max(9, cw*0.7)}px monospace`;
-    ctx.fillText(z.id, z.x*cw + 4, z.y*ch + 13);
-  });
-
-  // Obstacles
-  ctx.fillStyle = "#30363d";
-  (wh.obstacles || []).forEach(o => {
-    ctx.fillRect(o.x*cw + 1, o.y*ch + 1, cw - 2, ch - 2);
-  });
-
-  // Shelves
-  ctx.fillStyle = "#58a6ff44";
-  (wh.shelves || []).forEach(s => {
-    ctx.fillRect(s.x*cw + 2, s.y*ch + 2, cw - 4, ch - 4);
-  });
-
-  // Charging stations
-  ctx.fillStyle = "#f59e0b";
-  (wh.charging_stations || []).forEach(cs => {
+  for (let y = 0; y <= rows; y += 1) {
     ctx.beginPath();
-    ctx.arc(cs.x*cw + cw/2, cs.y*ch + ch/2, cw*0.35, 0, Math.PI*2);
-    ctx.fill();
-  });
-
-  // Robots
-  (wh.robots || []).forEach(r => {
-    ctx.fillStyle = "#3fb950";
-    ctx.beginPath();
-    ctx.arc(r.x*cw + cw/2, r.y*ch + ch/2, cw*0.38, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = "#0d1117";
-    ctx.font = `bold ${Math.max(8, cw*0.55)}px monospace`;
-    ctx.textAlign = "center";
-    ctx.fillText(r.id.replace(/^\D+/g, '') || r.id, r.x*cw + cw/2, r.y*ch + ch/2 + 3);
-    ctx.textAlign = "left";
-  });
-
-  // Path
-  if (path && path.length > 1) {
-    ctx.strokeStyle = "#58a6ffcc";
-    ctx.lineWidth   = cw * 0.25;
-    ctx.lineCap     = "round";
-    ctx.lineJoin    = "round";
-    ctx.beginPath();
-    ctx.moveTo(path[0][0]*cw + cw/2, path[0][1]*ch + ch/2);
-    path.forEach(([px, py]) => ctx.lineTo(px*cw + cw/2, py*ch + ch/2));
+    ctx.moveTo(0, y * cellHeight);
+    ctx.lineTo(width, y * cellHeight);
     ctx.stroke();
   }
 
-  // Start / Goal markers
-  if (start) {
-    ctx.fillStyle = "#3fb950";
-    ctx.fillRect(start[0]*cw + 2, start[1]*ch + 2, cw - 4, ch - 4);
+  (wh.zones || []).forEach(zone => {
+    ctx.fillStyle = `${zone.color}22`;
+    ctx.fillRect(zone.x * cellWidth, zone.y * cellHeight, zone.width * cellWidth, zone.height * cellHeight);
+    ctx.strokeStyle = `${zone.color}aa`;
+    ctx.lineWidth = 1.4;
+    ctx.strokeRect(zone.x * cellWidth, zone.y * cellHeight, zone.width * cellWidth, zone.height * cellHeight);
+    ctx.fillStyle = zone.color;
+    ctx.font = `bold ${Math.max(10, cellWidth * 0.62)}px sans-serif`;
+    ctx.fillText(zone.id, zone.x * cellWidth + 6, zone.y * cellHeight + 14);
+  });
+
+  ctx.fillStyle = "#4b5563";
+  (wh.obstacles || []).forEach(obstacle => {
+    ctx.fillRect(
+      obstacle.x * cellWidth + 2,
+      obstacle.y * cellHeight + 2,
+      cellWidth - 4,
+      cellHeight - 4
+    );
+  });
+
+  ctx.fillStyle = "rgba(94, 166, 255, 0.48)";
+  (wh.shelves || []).forEach(shelf => {
+    ctx.fillRect(
+      shelf.x * cellWidth + 3,
+      shelf.y * cellHeight + 3,
+      cellWidth - 6,
+      cellHeight - 6
+    );
+  });
+
+  (wh.zones || []).forEach(zone => {
+    const [entryX, entryY] = zone.entry;
+    const [exitX, exitY] = zone.exit;
+
+    ctx.fillStyle = "#31c48d";
+    ctx.fillRect(entryX * cellWidth + 4, entryY * cellHeight + 4, cellWidth - 8, cellHeight - 8);
+    ctx.fillStyle = "#f4b860";
+    ctx.fillRect(exitX * cellWidth + 4, exitY * cellHeight + 4, cellWidth - 8, cellHeight - 8);
+  });
+
+  ctx.fillStyle = "#f4b860";
+  (wh.charging_stations || []).forEach(station => {
+    ctx.beginPath();
+    ctx.arc(
+      station.x * cellWidth + cellWidth / 2,
+      station.y * cellHeight + cellHeight / 2,
+      cellWidth * 0.26,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  });
+
+  if (path && path.length > 1) {
+    ctx.strokeStyle = "rgba(123, 193, 255, 0.95)";
+    ctx.lineWidth = Math.max(4, cellWidth * 0.2);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(path[0][0] * cellWidth + cellWidth / 2, path[0][1] * cellHeight + cellHeight / 2);
+    path.forEach(([px, py]) => {
+      ctx.lineTo(px * cellWidth + cellWidth / 2, py * cellHeight + cellHeight / 2);
+    });
+    ctx.stroke();
   }
+
+  (wh.robots || []).forEach(robot => {
+    ctx.fillStyle = "#7bc1ff";
+    ctx.beginPath();
+    ctx.arc(
+      robot.x * cellWidth + cellWidth / 2,
+      robot.y * cellHeight + cellHeight / 2,
+      cellWidth * 0.28,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+
+    ctx.fillStyle = "#06111c";
+    ctx.font = `bold ${Math.max(8, cellWidth * 0.44)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText(
+      robot.id.replace(/^\D+/g, "") || robot.id,
+      robot.x * cellWidth + cellWidth / 2,
+      robot.y * cellHeight + cellHeight / 2 + 3
+    );
+    ctx.textAlign = "left";
+  });
+
+  if (start) {
+    ctx.strokeStyle = "#31c48d";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(start[0] * cellWidth + 3, start[1] * cellHeight + 3, cellWidth - 6, cellHeight - 6);
+  }
+
   if (goal) {
-    ctx.fillStyle = "#f85149";
-    ctx.fillRect(goal[0]*cw + 2, goal[1]*ch + 2, cw - 4, ch - 4);
+    ctx.strokeStyle = "#f87171";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(goal[0] * cellWidth + 3, goal[1] * cellHeight + 3, cellWidth - 6, cellHeight - 6);
   }
 }
 
-/* ── Pathfinder panel ────────────────────────────────────────── */
 async function findPath() {
-  const sx = parseInt($("#sx").value);
-  const sy = parseInt($("#sy").value);
-  const gx = parseInt($("#gx").value);
-  const gy = parseInt($("#gy").value);
+  const sx = parseInt($("#sx").value, 10);
+  const sy = parseInt($("#sy").value, 10);
+  const gx = parseInt($("#gx").value, 10);
+  const gy = parseInt($("#gy").value, 10);
 
   const res = await api("/api/path", {
     method: "POST",
@@ -220,24 +281,35 @@ async function findPath() {
 
   const box = $("#path-result");
   if (res.success) {
-    pathData = res.data;
-    box.textContent = `Path found!\nSteps: ${res.data.steps}  |  Length: ${res.data.length.toFixed(2)} units\nRoute: ${res.data.path.map(p => `(${p[0]},${p[1]})`).join(" → ")}`;
+    box.textContent = [
+      "Path found",
+      `Steps: ${res.data.steps}`,
+      `Length: ${res.data.length.toFixed(2)} units`,
+      `Route: ${res.data.path.map(point => `(${point[0]},${point[1]})`).join(" -> ")}`
+    ].join("\n");
     box.classList.remove("hidden");
     if (warehouseData) {
       drawWarehouseMap("path-canvas", warehouseData, res.data.path, [sx, sy], [gx, gy]);
     }
-    toast("Path found!");
+    toast("Path found");
   } else {
     box.textContent = `Error: ${res.error}`;
     box.classList.remove("hidden");
-    toast(res.error, false);
+    if (warehouseData) {
+      drawWarehouseMap("path-canvas", warehouseData, null, [sx, sy], [gx, gy]);
+    }
+    toast(res.error || "Path request failed", false);
   }
 }
 
 async function optimisePickRoute() {
   const raw = $("#pick-items").value;
-  const ids = raw.split(",").map(s => s.trim()).filter(Boolean);
-  if (!ids.length) { toast("Enter at least one item ID", false); return; }
+  const ids = raw.split(",").map(item => item.trim()).filter(Boolean);
+
+  if (!ids.length) {
+    toast("Enter at least one item ID", false);
+    return;
+  }
 
   const res = await api("/api/pick", {
     method: "POST",
@@ -246,41 +318,39 @@ async function optimisePickRoute() {
 
   const box = $("#pick-result");
   if (res.success) {
-    const d = res.data;
+    const data = res.data;
     box.textContent = [
-      `Robot: ${d.robot.name} (${d.robot.id})`,
-      `Stops: ${d.stops.map(s => `${s.item_id}@${s.shelf_id}`).join(", ")}`,
-      `Optimised distance: ${d.total_distance} units`,
-      `Route: ${d.optimised_route.route.map(p => `(${p[0]},${p[1]})`).join(" → ")}`
+      `Robot: ${data.robot.name} (${data.robot.id})`,
+      `Stops: ${data.stops.map(stop => `${stop.item_id}@${stop.shelf_id}`).join(", ")}`,
+      `Distance: ${data.total_distance} units`,
+      `Route order: ${data.optimised_route.route.map(point => `(${point[0]},${point[1]})`).join(" -> ")}`
     ].join("\n");
     box.classList.remove("hidden");
-    toast("Route optimised!");
+    toast("Pick route optimized");
   } else {
     box.textContent = `Error: ${res.error}`;
     box.classList.remove("hidden");
-    toast(res.error, false);
+    toast(res.error || "Route request failed", false);
   }
 }
 
-/* ── Inventory panel ─────────────────────────────────────────── */
 async function loadItems() {
   const res = await api(`/api/items?q=${encodeURIComponent(itemsQuery)}&page=${itemsPage}&per_page=15`);
   if (!res.success) return;
 
-  const tbody = $("#items-tbody");
-  const items = res.data.items;
-
-  tbody.innerHTML = items.map(item => {
+  $("#items-tbody").innerHTML = res.data.items.map(item => {
     const low = item.quantity <= item.reorder_point;
-    return `<tr>
-      <td style="font-family:var(--font);color:var(--muted)">${item.id}</td>
-      <td>${item.name}</td>
-      <td>${item.category}</td>
-      <td>${item.quantity}</td>
-      <td>${item.reorder_point}</td>
-      <td style="font-family:var(--font)">${item.location_id}</td>
-      <td><span class="badge ${low ? "badge-danger" : "badge-ok"}">${low ? "Low" : "OK"}</span></td>
-    </tr>`;
+    return `
+      <tr>
+        <td style="font-family:var(--font-mono);color:var(--muted)">${item.id}</td>
+        <td>${item.name}</td>
+        <td>${item.category}</td>
+        <td>${item.quantity}</td>
+        <td>${item.reorder_point}</td>
+        <td style="font-family:var(--font-mono)">${item.location_id}</td>
+        <td><span class="badge ${low ? "badge-danger" : "badge-ok"}">${low ? "Low" : "OK"}</span></td>
+      </tr>
+    `;
   }).join("");
 
   renderPagination(res.data);
@@ -288,51 +358,54 @@ async function loadItems() {
 
 function renderPagination(data) {
   const el = $("#items-pagination");
-  const pages = data.pages;
-  el.innerHTML = Array.from({ length: pages }, (_, i) => i + 1)
-    .map(p => `<button class="${p === itemsPage ? "active" : ""}" data-page="${p}">${p}</button>`)
+  el.innerHTML = Array.from({ length: data.pages }, (_, index) => index + 1)
+    .map(page => `<button class="${page === itemsPage ? "active" : ""}" data-page="${page}">${page}</button>`)
     .join("");
+
   el.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
-      itemsPage = parseInt(btn.dataset.page);
+      itemsPage = parseInt(btn.dataset.page, 10);
       loadItems();
     });
   });
 }
 
-/* ── Robot panel ─────────────────────────────────────────────── */
 async function loadRobots() {
   const res = await api("/api/robots");
   if (!res.success) return;
 
-  const el = $("#robot-cards");
-  el.innerHTML = res.data.robots.map(r => {
-    const bc = batteryClass(r.battery);
+  $("#robot-cards").innerHTML = res.data.robots.map(robot => {
+    const barClass = batteryClass(robot.battery);
     return `
       <div class="robot-card">
         <div class="robot-card-header">
           <div>
-            <div class="robot-card-name">${r.name}</div>
-            <div class="robot-card-id">${r.id} · (${r.x}, ${r.y})</div>
+            <div class="robot-card-name">${robot.name}</div>
+            <div class="robot-card-id">${robot.id} | (${robot.x}, ${robot.y})</div>
           </div>
-          ${statusBadge(r.status)}
+          ${statusBadge(robot.status)}
         </div>
+
         <div class="battery-bar-wrap">
           <div class="battery-bar-label">
-            <span>Battery</span><span>${r.battery}%</span>
+            <span>Battery</span>
+            <span>${robot.battery}%</span>
           </div>
           <div class="battery-bar">
-            <div class="battery-fill ${bc}" style="width:${r.battery}%"></div>
+            <div class="battery-fill ${barClass}" style="width:${robot.battery}%"></div>
           </div>
         </div>
+
         <div class="robot-stats">
-          <span>Distance <b>${r.total_distance}</b></span>
-          <span>Picks <b>${r.total_picks}</b></span>
+          <span>Distance <b>${robot.total_distance}</b></span>
+          <span>Picks <b>${robot.total_picks}</b></span>
         </div>
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn btn-ghost btn-sm" onclick="chargeRobot('${r.id}')">⚡ Charge</button>
+
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" onclick="chargeRobot('${robot.id}')">Charge</button>
         </div>
-        ${r.error_message ? `<div style="color:var(--danger);font-size:11px;margin-top:8px">⚠ ${r.error_message}</div>` : ""}
+
+        ${robot.error_message ? `<div style="margin-top:12px;color:#ffb0b0;font-size:12px">${robot.error_message}</div>` : ""}
       </div>
     `;
   }).join("");
@@ -343,51 +416,61 @@ async function chargeRobot(id) {
   if (res.success) {
     toast(`${res.data.name} charged to 100%`);
     loadRobots();
+    loadDashboard();
   } else {
-    toast(res.error, false);
+    toast(res.error || "Charge failed", false);
   }
 }
 
-/* ── Panel navigation ────────────────────────────────────────── */
-function switchPanel(name) {
-  $$(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.panel === name));
-  $$(".panel").forEach(p => p.classList.toggle("active", p.id === `panel-${name}`));
+window.chargeRobot = chargeRobot;
 
-  if (name === "dashboard")  loadDashboard();
-  if (name === "inventory")  { itemsPage = 1; loadItems(); }
-  if (name === "robots")     loadRobots();
+function switchPanel(name) {
+  $$(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.panel === name));
+  $$(".panel").forEach(panel => panel.classList.toggle("active", panel.id === `panel-${name}`));
+
+  if (name === "dashboard") {
+    loadDashboard();
+  }
+
+  if (name === "inventory") {
+    itemsPage = 1;
+    loadItems();
+  }
+
+  if (name === "robots") {
+    loadRobots();
+  }
+
   if (name === "pathfinder" && warehouseData) {
     drawWarehouseMap("path-canvas", warehouseData, null);
   }
 }
 
-/* ── Init ────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", async () => {
-  // Navigation
-  $$(".nav-btn").forEach(btn =>
-    btn.addEventListener("click", () => switchPanel(btn.dataset.panel))
-  );
-
-  // Pathfinder
-  $("#find-path-btn").addEventListener("click", findPath);
-  $("#pick-btn").addEventListener("click", optimisePickRoute);
-  $("#refresh-btn").addEventListener("click", loadDashboard);
-
-  // Item search (debounced)
-  let searchTimer;
-  $("#item-search").addEventListener("input", e => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      itemsQuery = e.target.value;
-      itemsPage  = 1;
-      loadItems();
-    }, 300);
+  $$(".nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => switchPanel(btn.dataset.panel));
   });
 
-  // Startup
+  $("#find-path-btn").addEventListener("click", findPath);
+  $("#pick-btn").addEventListener("click", optimisePickRoute);
+  $("#refresh-btn").addEventListener("click", async () => {
+    await checkHealth();
+    await loadDashboard();
+    toast("Dashboard refreshed");
+  });
+
+  let searchTimer;
+  $("#item-search").addEventListener("input", event => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      itemsQuery = event.target.value;
+      itemsPage = 1;
+      loadItems();
+    }, 250);
+  });
+
   await checkHealth();
   await loadDashboard();
 
-  // Auto-refresh health every 30s
-  setInterval(checkHealth, 30_000);
+  setInterval(checkHealth, 30000);
 });

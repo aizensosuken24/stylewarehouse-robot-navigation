@@ -1,7 +1,8 @@
 """
-Speckit Warehouse Robot API Server
+Smart-Robo Nav API Server
 Deployed on Render (backend).
 """
+import math
 import sys
 from pathlib import Path
 from typing import Optional
@@ -32,7 +33,8 @@ inventory = InventoryManager(config.ITEM_CATALOGUE_PATH)
 pathfinder = AStarPathfinder(
     grid_width=layout.width,
     grid_height=layout.height,
-    obstacles=layout.obstacles
+    obstacles=layout.obstacles,
+    can_move=layout.is_transition_allowed,
 )
 
 # Fleet
@@ -77,11 +79,41 @@ def _parse_point(value, field_name: str):
     return (x, y), None
 
 
+def _build_path_distance_fn():
+    cache = {}
+
+    def distance(a, b):
+        key = (a, b)
+        if key in cache:
+            return cache[key]
+
+        path = pathfinder.find_path(a, b)
+        value = float("inf") if path is None else pathfinder.path_length(path)
+        cache[key] = value
+        return value
+
+    return distance
+
+
+def _solve_route(start, stops):
+    distance_fn = _build_path_distance_fn()
+    result = solve_tsp(start, stops, improve=True, distance_fn=distance_fn)
+    if not math.isfinite(result["total_distance"]):
+        return None, error_response(
+            "At least one stop is unreachable with the current zone gates and obstacles",
+            409,
+        )
+    return result, None
+
+
 # ── Health ─────────────────────────────────────────────────────────────────────
 @app.route("/", methods=["GET"])
 @app.route("/health", methods=["GET"])
 def health():
-    return success_response({"status": "ok", "version": "1.0.0"}, "Speckit API running")
+    return success_response(
+        {"status": "ok", "version": "1.1.0"},
+        "Smart-Robo Nav API running",
+    )
 
 
 # ── Warehouse ──────────────────────────────────────────────────────────────────
@@ -198,7 +230,10 @@ def optimise_route():
             return error
         stops_t.append(parsed_stop)
 
-    result = solve_tsp(start_t, stops_t, improve=True)
+    result, error = _solve_route(start_t, stops_t)
+    if error:
+        return error
+
     return success_response(result)
 
 
@@ -253,7 +288,9 @@ def create_pick_order():
     # Optimise route
     start_t = robot.position
     stops_t = [tuple(s["position"]) for s in stops]
-    tsp     = solve_tsp(start_t, stops_t, improve=True)
+    tsp, error = _solve_route(start_t, stops_t)
+    if error:
+        return error
 
     return success_response({
         "robot": robot.to_dict(),

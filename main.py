@@ -1,5 +1,5 @@
 """
-main.py — CLI entry point for local development.
+main.py - CLI entry point for local development.
 Run: python main.py
 """
 import sys
@@ -11,5 +11,5 @@ from server import app
 import config
 
 if __name__ == "__main__":
-    print(f"Starting Speckit API on http://{config.HOST}:{config.PORT}")
+    print(f"Starting Smart-Robo Nav API on http://{config.HOST}:{config.PORT}")
     app.run(host=config.HOST, port=config.PORT, debug=True)

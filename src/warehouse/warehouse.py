@@ -1,10 +1,10 @@
 """
 Warehouse module: Loads and manages warehouse layout, shelves, and inventory.
 """
-import json
 import csv
-from typing import List, Tuple, Dict, Optional, Set
+import json
 from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple
 
 
 class Shelf:
@@ -60,7 +60,7 @@ class WarehouseLayout:
         self.width = dims.get("width", 20)
         self.height = dims.get("height", 20)
 
-        self.zones = data.get("zones", [])
+        self.zones = [self._normalise_zone(zone) for zone in data.get("zones", [])]
         self.charging_stations = data.get("charging_stations", [])
         self.robots_initial = data.get("robots", [])
 
@@ -80,6 +80,46 @@ class WarehouseLayout:
                 for dy in range(obs.get("height", 1)):
                     self.obstacles.add((obs["x"] + dx, obs["y"] + dy))
 
+    def _normalise_zone(self, zone: dict) -> dict:
+        normalised = dict(zone)
+        normalised["entry"] = tuple(zone.get("entry", (zone["x"], zone["y"])))
+        normalised["exit"] = tuple(
+            zone.get(
+                "exit",
+                (zone["x"] + zone["width"] - 1, zone["y"] + zone["height"] - 1),
+            )
+        )
+        return normalised
+
+    def get_zone_at(self, x: int, y: int) -> Optional[dict]:
+        for zone in self.zones:
+            if (
+                zone["x"] <= x < zone["x"] + zone["width"]
+                and zone["y"] <= y < zone["y"] + zone["height"]
+            ):
+                return zone
+        return None
+
+    def is_transition_allowed(
+        self, current: Tuple[int, int], nxt: Tuple[int, int]
+    ) -> bool:
+        current_zone = self.get_zone_at(*current)
+        next_zone = self.get_zone_at(*nxt)
+
+        if current_zone == next_zone:
+            return True
+
+        if current_zone is None and next_zone is None:
+            return True
+
+        if current_zone is None and next_zone is not None:
+            return nxt == next_zone["entry"]
+
+        if current_zone is not None and next_zone is None:
+            return current == current_zone["exit"]
+
+        return False
+
     def get_shelf(self, shelf_id: str) -> Optional[Shelf]:
         return self.shelves.get(shelf_id)
 
@@ -94,7 +134,14 @@ class WarehouseLayout:
         return {
             "width": self.width,
             "height": self.height,
-            "zones": self.zones,
+            "zones": [
+                {
+                    **zone,
+                    "entry": list(zone["entry"]),
+                    "exit": list(zone["exit"]),
+                }
+                for zone in self.zones
+            ],
             "shelves": [s.to_dict() for s in self.shelves.values()],
             "obstacles": [{"x": x, "y": y} for x, y in self.obstacles],
             "charging_stations": self.charging_stations,

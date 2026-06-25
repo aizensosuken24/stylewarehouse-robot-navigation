@@ -3,121 +3,222 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Speckit — Warehouse Robot Dashboard</title>
+  <title>Smart-Robo Nav | Warehouse Control</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar-brand">
-      <span class="topbar-logo">⬡</span>
-      <span class="topbar-name">Speckit</span>
+    <div class="brand-lockup">
+      <span class="brand-mark">SR</span>
+      <div class="brand-copy">
+        <span class="brand-name">Smart-Robo Nav</span>
+        <span class="brand-subtitle">Warehouse control grid</span>
+      </div>
     </div>
-    <nav class="topbar-nav">
+
+    <nav class="topbar-nav" aria-label="Primary">
       <button class="nav-btn active" data-panel="dashboard">Dashboard</button>
       <button class="nav-btn" data-panel="pathfinder">Pathfinder</button>
       <button class="nav-btn" data-panel="inventory">Inventory</button>
       <button class="nav-btn" data-panel="robots">Robots</button>
     </nav>
-    <div class="topbar-status">
+
+    <div class="status-pill">
       <span id="api-status" class="status-dot offline"></span>
-      <span id="api-label">Connecting…</span>
+      <span id="api-label">Connecting</span>
     </div>
   </header>
 
   <main class="content">
-
-    <!-- ── Dashboard ───────────────────────────────────────── -->
     <section id="panel-dashboard" class="panel active">
-      <div class="panel-header">
-        <h1>Warehouse Overview</h1>
-        <button class="btn btn-ghost" id="refresh-btn">↻ Refresh</button>
-      </div>
-
-      <div class="stats-row" id="stats-row">
-        <div class="stat-card"><div class="stat-val" id="stat-robots">—</div><div class="stat-label">Robots</div></div>
-        <div class="stat-card"><div class="stat-val" id="stat-idle">—</div><div class="stat-label">Idle</div></div>
-        <div class="stat-card"><div class="stat-val" id="stat-battery">—%</div><div class="stat-label">Avg Battery</div></div>
-        <div class="stat-card"><div class="stat-val" id="stat-items">—</div><div class="stat-label">SKUs</div></div>
-        <div class="stat-card"><div class="stat-val" id="stat-lowstock">—</div><div class="stat-label">Low Stock</div></div>
-      </div>
-
-      <div class="grid-two">
-        <div class="card">
-          <div class="card-title">Fleet Status</div>
-          <div id="fleet-list" class="robot-list"></div>
+      <div class="hero-band">
+        <div class="hero-copy">
+          <p class="eyebrow">Ops overview</p>
+          <h1>Zone-gated warehouse routing</h1>
+          <p class="hero-text">
+            Every zone uses one controlled entry and one controlled exit. Paths now respect those gates and the obstacle grid inside and outside each zone.
+          </p>
         </div>
-        <div class="card">
-          <div class="card-title">Warehouse Map</div>
-          <canvas id="map-canvas" width="400" height="400"></canvas>
+        <div class="hero-meta">
+          <div class="meta-chip">
+            <span class="meta-label">App</span>
+            <span class="meta-value">Smart-Robo Nav</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">Routing</span>
+            <span class="meta-value">A* + gated zones</span>
+          </div>
+          <button class="btn btn-primary" id="refresh-btn">Reload data</button>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="stats-row">
+        <div class="stat-card">
+          <span class="stat-label">Robots online</span>
+          <span class="stat-val" id="stat-robots">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Idle now</span>
+          <span class="stat-val" id="stat-idle">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Avg battery</span>
+          <span class="stat-val" id="stat-battery">--%</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Tracked SKUs</span>
+          <span class="stat-val" id="stat-items">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Low stock</span>
+          <span class="stat-val" id="stat-lowstock">--</span>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <section class="surface">
+          <div class="surface-header">
+            <div>
+              <h2>Warehouse map</h2>
+              <p class="section-copy">Zone entry and exit gates are shown directly on the grid.</p>
+            </div>
+          </div>
+          <canvas id="map-canvas" width="520" height="520"></canvas>
+          <div class="legend-row">
+            <span class="legend-item"><i class="swatch swatch-zone"></i> Zones</span>
+            <span class="legend-item"><i class="swatch swatch-obstacle"></i> Obstacles</span>
+            <span class="legend-item"><i class="swatch swatch-entry"></i> Entry</span>
+            <span class="legend-item"><i class="swatch swatch-exit"></i> Exit</span>
+            <span class="legend-item"><i class="swatch swatch-robot"></i> Robots</span>
+          </div>
+        </section>
+
+        <div class="stack">
+          <section class="surface">
+            <div class="surface-header">
+              <div>
+                <h2>Fleet status</h2>
+                <p class="section-copy">Live robot state, battery, and location.</p>
+              </div>
+            </div>
+            <div id="fleet-list" class="robot-list"></div>
+          </section>
+
+          <section class="surface">
+            <div class="surface-header">
+              <div>
+                <h2>Zone access</h2>
+                <p class="section-copy">Only these gates allow movement across zone boundaries.</p>
+              </div>
+            </div>
+            <div id="zone-access-list" class="zone-access-list"></div>
+          </section>
         </div>
       </div>
     </section>
 
-    <!-- ── Pathfinder ─────────────────────────────────────── -->
     <section id="panel-pathfinder" class="panel">
       <div class="panel-header">
-        <h1>Pathfinder</h1>
-      </div>
-      <div class="grid-two">
-        <div class="card">
-          <div class="card-title">Find Path</div>
-          <div class="form-group">
-            <label>Start X</label><input type="number" id="sx" value="0" min="0" max="19" />
-            <label>Start Y</label><input type="number" id="sy" value="0" min="0" max="19" />
-          </div>
-          <div class="form-group">
-            <label>Goal X</label><input type="number" id="gx" value="8" min="0" max="19" />
-            <label>Goal Y</label><input type="number" id="gy" value="2" min="0" max="19" />
-          </div>
-          <button class="btn btn-primary" id="find-path-btn">Find Path</button>
-          <div id="path-result" class="result-box hidden"></div>
-        </div>
-        <div class="card">
-          <div class="card-title">Path Visualisation</div>
-          <canvas id="path-canvas" width="400" height="400"></canvas>
+        <div>
+          <p class="eyebrow">Routing</p>
+          <h1>Pathfinder</h1>
         </div>
       </div>
 
-      <div class="card mt-4">
-        <div class="card-title">Pick Route Optimiser (TSP)</div>
-        <p class="hint">Enter comma-separated item IDs to generate an optimised pick route.</p>
-        <div class="form-group">
-          <label>Item IDs</label>
-          <input type="text" id="pick-items" placeholder="ITM001, ITM003, ITM005" />
-        </div>
-        <button class="btn btn-primary" id="pick-btn">Optimise Route</button>
-        <div id="pick-result" class="result-box hidden"></div>
+      <div class="tool-grid">
+        <section class="surface">
+          <div class="surface-header">
+            <div>
+              <h2>Find path</h2>
+              <p class="section-copy">The route respects zone gates and obstacles automatically.</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label>
+              <span>Start X</span>
+              <input type="number" id="sx" value="0" min="0" max="19" />
+            </label>
+            <label>
+              <span>Start Y</span>
+              <input type="number" id="sy" value="0" min="0" max="19" />
+            </label>
+            <label>
+              <span>Goal X</span>
+              <input type="number" id="gx" value="8" min="0" max="19" />
+            </label>
+            <label>
+              <span>Goal Y</span>
+              <input type="number" id="gy" value="2" min="0" max="19" />
+            </label>
+          </div>
+          <button class="btn btn-primary" id="find-path-btn">Find path</button>
+          <div id="path-result" class="result-box hidden"></div>
+        </section>
+
+        <section class="surface">
+          <div class="surface-header">
+            <div>
+              <h2>Path visual</h2>
+              <p class="section-copy">Start, goal, and routed cells are plotted on the same gated map.</p>
+            </div>
+          </div>
+          <canvas id="path-canvas" width="520" height="520"></canvas>
+        </section>
       </div>
+
+      <section class="surface">
+        <div class="surface-header">
+          <div>
+            <h2>Pick route optimizer</h2>
+            <p class="section-copy">Orders stops using the live traversable distance, not straight-line distance.</p>
+          </div>
+        </div>
+        <label class="field-block">
+          <span>Item IDs</span>
+          <input type="text" id="pick-items" placeholder="ITM001, ITM003, ITM005" />
+        </label>
+        <button class="btn btn-primary" id="pick-btn">Optimize route</button>
+        <div id="pick-result" class="result-box hidden"></div>
+      </section>
     </section>
 
-    <!-- ── Inventory ──────────────────────────────────────── -->
     <section id="panel-inventory" class="panel">
       <div class="panel-header">
-        <h1>Inventory</h1>
-        <input type="text" id="item-search" placeholder="Search items…" class="search-input" />
+        <div>
+          <p class="eyebrow">Stock</p>
+          <h1>Inventory</h1>
+        </div>
+        <input type="text" id="item-search" placeholder="Search items" class="search-input" />
       </div>
-      <div class="card">
+
+      <section class="surface">
         <table class="data-table" id="items-table">
           <thead>
             <tr>
-              <th>ID</th><th>Name</th><th>Category</th>
-              <th>Qty</th><th>Reorder</th><th>Location</th><th>Status</th>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Qty</th>
+              <th>Reorder</th>
+              <th>Location</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody id="items-tbody"></tbody>
         </table>
         <div id="items-pagination" class="pagination"></div>
-      </div>
+      </section>
     </section>
 
-    <!-- ── Robots ─────────────────────────────────────────── -->
     <section id="panel-robots" class="panel">
       <div class="panel-header">
-        <h1>Robot Fleet</h1>
+        <div>
+          <p class="eyebrow">Fleet</p>
+          <h1>Robot fleet</h1>
+        </div>
       </div>
       <div id="robot-cards" class="robot-grid"></div>
     </section>
-
   </main>
 
   <div id="toast" class="toast hidden"></div>

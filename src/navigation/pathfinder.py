@@ -3,7 +3,7 @@ Navigation module: A* pathfinding for warehouse robot navigation.
 """
 import heapq
 import math
-from typing import Iterable, List, Optional, Set, Tuple
+from typing import Callable, Iterable, List, Optional, Set, Tuple
 
 
 class Node:
@@ -44,12 +44,16 @@ class AStarPathfinder:
 
     def __init__(self, grid_width: int, grid_height: int,
                  obstacles: Optional[Iterable[Tuple[int, int]]] = None,
-                 allow_diagonal: bool = False):
+                 allow_diagonal: bool = False,
+                 can_move: Optional[
+                     Callable[[Tuple[int, int], Tuple[int, int]], bool]
+                 ] = None):
         self.width = grid_width
         self.height = grid_height
         self.obstacles: Set[Tuple[int, int]] = obstacles or set()
         self.allow_diagonal = allow_diagonal
         self.directions = self.DIRECTIONS_8 if allow_diagonal else self.DIRECTIONS_4
+        self.can_move = can_move
 
     def set_obstacles(self, obstacles: Iterable[Tuple[int, int]]):
         """Update the obstacle set."""
@@ -119,6 +123,9 @@ class AStarPathfinder:
                 npos = (nx, ny)
 
                 if not self.is_valid(nx, ny) or npos in closed_set:
+                    continue
+
+                if self.can_move and not self.can_move(pos, npos):
                     continue
 
                 move_cost = math.sqrt(2) if (dx != 0 and dy != 0) else 1.0
