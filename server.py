@@ -2,9 +2,9 @@
 Speckit Warehouse Robot API Server
 Deployed on Render (backend).
 """
-import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Ensure project root is on path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -47,6 +47,36 @@ for rb in layout.robots_initial:
     ))
 
 
+def _parse_int_arg(name: str, default: int, minimum: Optional[int] = None):
+    raw_value = request.args.get(name, default)
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return None, error_response(f"Query parameter '{name}' must be an integer")
+
+    if minimum is not None and value < minimum:
+        return None, error_response(
+            f"Query parameter '{name}' must be greater than or equal to {minimum}"
+        )
+
+    return value, None
+
+
+def _parse_point(value, field_name: str):
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None, error_response(f"Provide '{field_name}' as a [x, y] array")
+
+    try:
+        x = int(value[0])
+        y = int(value[1])
+    except (TypeError, ValueError):
+        return None, error_response(
+            f"Coordinates in '{field_name}' must be integers"
+        )
+
+    return (x, y), None
+
+
 # ── Health ─────────────────────────────────────────────────────────────────────
 @app.route("/", methods=["GET"])
 @app.route("/health", methods=["GET"])
@@ -67,8 +97,13 @@ def get_warehouse():
 @app.route("/api/items", methods=["GET"])
 def get_items():
     query   = request.args.get("q", "")
-    page    = int(request.args.get("page", 1))
-    per_page = int(request.args.get("per_page", 20))
+    page, error = _parse_int_arg("page", 1, minimum=1)
+    if error:
+        return error
+
+    per_page, error = _parse_int_arg("per_page", 20, minimum=1)
+    if error:
+        return error
 
     items = inventory.search_items(query) if query else inventory.all_items()
     return success_response(paginate(items, page, per_page))
@@ -121,23 +156,22 @@ def find_path():
     Body: { "start": [x, y], "goal": [x, y] }
     """
     body = request.get_json(silent=True) or {}
-    start = body.get("start")
-    goal  = body.get("goal")
+    start, error = _parse_point(body.get("start"), "start")
+    if error:
+        return error
 
-    if not start or not goal or len(start) != 2 or len(goal) != 2:
-        return error_response("Provide 'start' and 'goal' as [x, y] arrays")
+    goal, error = _parse_point(body.get("goal"), "goal")
+    if error:
+        return error
 
-    sx, sy = int(start[0]), int(start[1])
-    gx, gy = int(goal[0]),  int(goal[1])
-
-    path = pathfinder.find_path((sx, sy), (gx, gy))
+    path = pathfinder.find_path(start, goal)
     if path is None:
         return error_response("No path found between the given positions", 404)
 
     return success_response({
         "path": path,
         "length": pathfinder.path_length(path),
-        "steps": len(path)
+        "steps": max(0, len(path) - 1)
     })
 
 
@@ -149,14 +183,20 @@ def optimise_route():
     Body: { "start": [x, y], "stops": [[x1,y1], [x2,y2], ...] }
     """
     body  = request.get_json(silent=True) or {}
-    start = body.get("start")
+    start_t, error = _parse_point(body.get("start"), "start")
+    if error:
+        return error
+
     stops = body.get("stops", [])
+    if not isinstance(stops, list):
+        return error_response("Provide 'stops' as a list of [x, y] arrays")
 
-    if not start or len(start) != 2:
-        return error_response("Provide 'start' as [x, y]")
-
-    start_t = (int(start[0]), int(start[1]))
-    stops_t = [(int(s[0]), int(s[1])) for s in stops]
+    stops_t = []
+    for index, stop in enumerate(stops):
+        parsed_stop, error = _parse_point(stop, f"stops[{index}]")
+        if error:
+            return error
+        stops_t.append(parsed_stop)
 
     result = solve_tsp(start_t, stops_t, improve=True)
     return success_response(result)
@@ -173,7 +213,7 @@ def create_pick_order():
     body     = request.get_json(silent=True) or {}
     item_ids = body.get("item_ids", [])
 
-    if not item_ids:
+    if not isinstance(item_ids, list) or not item_ids:
         return error_response("Provide at least one item_id in 'item_ids'")
 
     # Resolve locations
@@ -187,6 +227,8 @@ def create_pick_order():
         pos = layout.get_shelf_position(shelf_id)
         if pos:
             stops.append({"item_id": iid, "shelf_id": shelf_id, "position": list(pos)})
+        else:
+            missing.append(iid)
 
     if missing:
         return error_response(f"Items not found: {missing}", 404)
@@ -195,6 +237,10 @@ def create_pick_order():
     robot_id = body.get("robot_id")
     if robot_id:
         robot = fleet.get_robot(robot_id)
+        if not robot:
+            return error_response(f"Robot '{robot_id}' not found", 404)
+        if not robot.is_available:
+            return error_response(f"Robot '{robot_id}' is not available", 409)
     else:
         stop_positions = [s["position"] for s in stops]
         cx = int(sum(p[0] for p in stop_positions) / len(stop_positions))

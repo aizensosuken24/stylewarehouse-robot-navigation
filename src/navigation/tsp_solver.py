@@ -2,7 +2,7 @@
 TSP (Travelling Salesman Problem) solver for multi-stop warehouse route optimization.
 Uses nearest-neighbour heuristic with 2-opt improvement.
 """
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 import math
 
 
@@ -32,6 +32,18 @@ def nearest_neighbour_tsp(start: Tuple[int, int],
     return route
 
 
+def route_distance(start: Tuple[int, int], route: List[Tuple[int, int]]) -> float:
+    """Calculate the round-trip distance for a route that starts and ends at start."""
+    if not route:
+        return 0.0
+
+    full_path = [start] + list(route) + [start]
+    return sum(
+        euclidean_distance(full_path[i], full_path[i + 1])
+        for i in range(len(full_path) - 1)
+    )
+
+
 def two_opt_improve(route: List[Tuple[int, int]],
                     start: Tuple[int, int],
                     max_iterations: int = 100) -> List[Tuple[int, int]]:
@@ -40,28 +52,35 @@ def two_opt_improve(route: List[Tuple[int, int]],
     Reverses sub-sequences to reduce total distance.
     """
     if len(route) < 3:
-        return route
+        return list(route)
 
-    full = [start] + list(route)
-    improved = True
+    best_route = list(route)
+    best_distance = route_distance(start, best_route)
     iteration = 0
+    improved = True
 
     while improved and iteration < max_iterations:
         improved = False
         iteration += 1
-        for i in range(1, len(full)):
-            for j in range(i + 1, len(full) + 1):
-                next_node = full[j] if j < len(full) else full[0]
-                d_before = (euclidean_distance(full[i-1], full[i]) +
-                            euclidean_distance(full[j-1], next_node))
-                d_after  = (euclidean_distance(full[i-1], full[j-1]) +
-                            euclidean_distance(full[i], next_node))
 
-                if d_after < d_before - 1e-10:
-                    full[i:j] = full[i:j][::-1]
+        for i in range(len(best_route) - 1):
+            for j in range(i + 1, len(best_route)):
+                candidate = (
+                    best_route[:i]
+                    + list(reversed(best_route[i:j + 1]))
+                    + best_route[j + 1:]
+                )
+                candidate_distance = route_distance(start, candidate)
+
+                if candidate_distance < best_distance - 1e-10:
+                    best_route = candidate
+                    best_distance = candidate_distance
                     improved = True
 
-    return full[1:]  # Remove start
+        if improved:
+            continue
+
+    return best_route
 
 
 def solve_tsp(start: Tuple[int, int],
@@ -87,11 +106,7 @@ def solve_tsp(start: Tuple[int, int],
         route = two_opt_improve(route, start)
 
     # Calculate total distance
-    full_path = [start] + route + [start]
-    total_dist = sum(
-        euclidean_distance(full_path[i], full_path[i+1])
-        for i in range(len(full_path) - 1)
-    )
+    total_dist = route_distance(start, route)
 
     return {
         "route": route,

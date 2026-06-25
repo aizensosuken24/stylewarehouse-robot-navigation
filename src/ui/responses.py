@@ -1,7 +1,7 @@
 """
 UI helpers: standardized API response formatting.
 """
-from typing import Any, Optional
+from typing import Any
 from flask import jsonify
 
 
@@ -24,6 +24,7 @@ def error_response(message: str, status: int = 400, details: Any = None):
 def paginate(items: list, page: int = 1, per_page: int = 20) -> dict:
     """Simple pagination helper."""
     page = max(1, page)
+    per_page = max(1, per_page)
     total = len(items)
     start = (page - 1) * per_page
     end = start + per_page

@@ -1,9 +1,9 @@
 """
 Robot module: Represents a warehouse robot with state, movement, and battery management.
 """
-from typing import List, Tuple, Optional
+import math
 from enum import Enum
-import time
+from typing import List, Optional, Tuple
 
 
 class RobotStatus(str, Enum):
@@ -67,7 +67,14 @@ class Robot:
         if path[0] == (self.x, self.y):
             actual_steps = path[1:]
 
-        required_battery = len(actual_steps) * self.BATTERY_PER_MOVE
+        required_battery = 0.0
+        previous = self.position
+        for step in actual_steps:
+            required_battery += (
+                math.dist(previous, step) * self.BATTERY_PER_MOVE
+            )
+            previous = step
+
         if self.battery < required_battery:
             self.status = RobotStatus.ERROR
             self.error_message = "Insufficient battery for path"
@@ -76,10 +83,17 @@ class Robot:
         self.status = RobotStatus.MOVING
         self.current_path = list(path)
 
+        self.error_message = None
+        previous = self.position
         for step in actual_steps:
             self.x, self.y = step
-            self.battery = max(0.0, self.battery - self.BATTERY_PER_MOVE)
-            self.total_distance += 1.0
+            step_distance = math.dist(previous, step)
+            self.battery = max(
+                0.0,
+                self.battery - (step_distance * self.BATTERY_PER_MOVE)
+            )
+            self.total_distance += step_distance
+            previous = step
 
         self.current_path = []
         self.status = RobotStatus.IDLE
@@ -90,10 +104,12 @@ class Robot:
         Simulate picking an item at current location.
         """
         if self.battery < self.BATTERY_PER_PICK:
+            self.status = RobotStatus.ERROR
             self.error_message = "Insufficient battery to pick item"
             return False
 
         self.status = RobotStatus.PICKING
+        self.error_message = None
         self.battery = max(0.0, self.battery - self.BATTERY_PER_PICK)
         self.total_picks += 1
         self.status = RobotStatus.IDLE
@@ -102,9 +118,9 @@ class Robot:
     def charge(self, target_level: float = 100.0):
         """Charge robot to target battery level."""
         self.status = RobotStatus.CHARGING
-        self.battery = min(100.0, target_level)
-        if self.battery >= 100.0:
-            self.status = RobotStatus.IDLE
+        self.battery = min(100.0, max(0.0, target_level))
+        self.error_message = None
+        self.status = RobotStatus.IDLE
 
     def set_error(self, message: str):
         self.status = RobotStatus.ERROR

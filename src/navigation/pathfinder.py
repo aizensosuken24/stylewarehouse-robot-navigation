@@ -2,7 +2,8 @@
 Navigation module: A* pathfinding for warehouse robot navigation.
 """
 import heapq
-from typing import List, Tuple, Optional, Set
+import math
+from typing import Iterable, List, Optional, Set, Tuple
 
 
 class Node:
@@ -20,6 +21,8 @@ class Node:
         return self.f < other.f
 
     def __eq__(self, other):
+        if not isinstance(other, Node):
+            return NotImplemented
         return self.x == other.x and self.y == other.y
 
     def __hash__(self):
@@ -40,7 +43,7 @@ class AStarPathfinder:
                     (1, 1), (1, -1), (-1, 1), (-1, -1)]
 
     def __init__(self, grid_width: int, grid_height: int,
-                 obstacles: Set[Tuple[int, int]] = None,
+                 obstacles: Optional[Iterable[Tuple[int, int]]] = None,
                  allow_diagonal: bool = False):
         self.width = grid_width
         self.height = grid_height
@@ -48,7 +51,7 @@ class AStarPathfinder:
         self.allow_diagonal = allow_diagonal
         self.directions = self.DIRECTIONS_8 if allow_diagonal else self.DIRECTIONS_4
 
-    def set_obstacles(self, obstacles: List[Tuple[int, int]]):
+    def set_obstacles(self, obstacles: Iterable[Tuple[int, int]]):
         """Update the obstacle set."""
         self.obstacles = set(obstacles)
 
@@ -64,7 +67,7 @@ class AStarPathfinder:
         dy = abs(a.y - b.y)
         if self.allow_diagonal:
             # Octile distance
-            return (dx + dy) + (1.41421356237 - 2.0) * min(dx, dy)
+            return (dx + dy) + (math.sqrt(2) - 2.0) * min(dx, dy)
         else:
             # Manhattan distance
             return dx + dy
@@ -118,7 +121,7 @@ class AStarPathfinder:
                 if not self.is_valid(nx, ny) or npos in closed_set:
                     continue
 
-                move_cost = 1.4142 if (dx != 0 and dy != 0) else 1.0
+                move_cost = math.sqrt(2) if (dx != 0 and dy != 0) else 1.0
                 tentative_g = current.g + move_cost
 
                 if npos in open_set and open_set[npos].g <= tentative_g:
