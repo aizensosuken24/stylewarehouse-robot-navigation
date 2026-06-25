@@ -7,7 +7,7 @@ const API_BASE =
   window.ENV_API_URL ||
   (["localhost", "127.0.0.1", ""].includes(window.location.hostname)
     ? "http://localhost:5000"
-    : "https://speckit-api.onrender.com");
+    : "https://stylewarehouse-robot-navigation-1.onrender.com");
 
 /* ── State ─────────────────────────────────────────────────── */
 let warehouseData  = null;
