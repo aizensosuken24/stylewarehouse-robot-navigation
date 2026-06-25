@@ -1,124 +1,154 @@
 """
-navigation/pathfinder.py
-Provides A* and Dijkstra pathfinding on a WarehouseMap grid.
+Navigation module: A* pathfinding for warehouse robot navigation.
 """
-from __future__ import annotations
 import heapq
-import math
-from typing import Dict, List, Optional, Tuple
-
-# Type alias
-Pos = Tuple[int, int]
+from typing import List, Tuple, Optional, Set
 
 
-# ── Heuristics ────────────────────────────────────────────────────────────────
+class Node:
+    """Represents a grid node for A* search."""
 
-def manhattan(a: Pos, b: Pos) -> int:
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+    def __init__(self, x: int, y: int, g: float = 0, h: float = 0, parent=None):
+        self.x = x
+        self.y = y
+        self.g = g          # Cost from start
+        self.h = h          # Heuristic to goal
+        self.f = g + h      # Total estimated cost
+        self.parent = parent
+
+    def __lt__(self, other):
+        return self.f < other.f
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __hash__(self):
+        return hash((self.x, self.y))
+
+    def __repr__(self):
+        return f"Node({self.x}, {self.y}, f={self.f:.2f})"
 
 
-def euclidean(a: Pos, b: Pos) -> float:
-    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
-
-
-# ── A* ────────────────────────────────────────────────────────────────────────
-
-def astar(grid_map, start: Pos, goal: Pos) -> Optional[List[Pos]]:
+class AStarPathfinder:
     """
-    Find the shortest path from `start` to `goal` on `grid_map` using A*.
-
-    Args:
-        grid_map: a WarehouseMap instance (must implement .neighbours())
-        start:    (row, col) start position
-        goal:     (row, col) goal position
-
-    Returns:
-        Ordered list of (row, col) positions from start to goal (inclusive),
-        or None if no path exists.
+    A* pathfinding algorithm for warehouse grid navigation.
+    Supports 4-directional and 8-directional movement.
     """
-    if start == goal:
-        return [start]
 
-    open_heap: List[Tuple[float, Pos]] = []
-    heapq.heappush(open_heap, (0.0, start))
+    DIRECTIONS_4 = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+    DIRECTIONS_8 = [(0, 1), (1, 0), (0, -1), (-1, 0),
+                    (1, 1), (1, -1), (-1, 1), (-1, -1)]
 
-    came_from: Dict[Pos, Optional[Pos]] = {start: None}
-    g_score: Dict[Pos, float] = {start: 0.0}
+    def __init__(self, grid_width: int, grid_height: int,
+                 obstacles: Set[Tuple[int, int]] = None,
+                 allow_diagonal: bool = False):
+        self.width = grid_width
+        self.height = grid_height
+        self.obstacles: Set[Tuple[int, int]] = obstacles or set()
+        self.allow_diagonal = allow_diagonal
+        self.directions = self.DIRECTIONS_8 if allow_diagonal else self.DIRECTIONS_4
 
-    while open_heap:
-        _, current = heapq.heappop(open_heap)
+    def set_obstacles(self, obstacles: List[Tuple[int, int]]):
+        """Update the obstacle set."""
+        self.obstacles = set(obstacles)
 
-        if current == goal:
-            return _reconstruct(came_from, goal)
+    def add_obstacle(self, x: int, y: int):
+        self.obstacles.add((x, y))
 
-        for nb in grid_map.neighbours(*current):
-            tentative_g = g_score[current] + 1  # uniform edge cost
-            if tentative_g < g_score.get(nb, float("inf")):
-                came_from[nb] = current
-                g_score[nb] = tentative_g
-                f = tentative_g + manhattan(nb, goal)
-                heapq.heappush(open_heap, (f, nb))
+    def remove_obstacle(self, x: int, y: int):
+        self.obstacles.discard((x, y))
 
-    return None  # no path found
+    def heuristic(self, a: Node, b: Node) -> float:
+        """Heuristic function (Manhattan or Octile depending on diagonal setting)."""
+        dx = abs(a.x - b.x)
+        dy = abs(a.y - b.y)
+        if self.allow_diagonal:
+            # Octile distance
+            return (dx + dy) + (1.41421356237 - 2.0) * min(dx, dy)
+        else:
+            # Manhattan distance
+            return dx + dy
 
+    def is_valid(self, x: int, y: int) -> bool:
+        """Check if a cell is within bounds and not an obstacle."""
+        return (0 <= x < self.width and
+                0 <= y < self.height and
+                (x, y) not in self.obstacles)
 
-# ── Dijkstra ──────────────────────────────────────────────────────────────────
+    def find_path(self, start: Tuple[int, int],
+                  goal: Tuple[int, int]) -> Optional[List[Tuple[int, int]]]:
+        """
+        Find shortest path from start to goal using A*.
+        Returns list of (x, y) tuples or None if no path exists.
+        """
+        sx, sy = start
+        gx, gy = goal
 
-def dijkstra(grid_map, start: Pos, goal: Pos) -> Optional[List[Pos]]:
-    """
-    Find the shortest path using Dijkstra's algorithm (no heuristic).
-    Slower than A* but useful as a correctness reference.
-    """
-    if start == goal:
-        return [start]
+        if not self.is_valid(sx, sy) or not self.is_valid(gx, gy):
+            return None
 
-    open_heap: List[Tuple[float, Pos]] = []
-    heapq.heappush(open_heap, (0.0, start))
+        if start == goal:
+            return [start]
 
-    came_from: Dict[Pos, Optional[Pos]] = {start: None}
-    dist: Dict[Pos, float] = {start: 0.0}
+        start_node = Node(sx, sy, g=0, h=0)
+        goal_node = Node(gx, gy)
+        start_node.h = self.heuristic(start_node, goal_node)
+        start_node.f = start_node.h
 
-    while open_heap:
-        d, current = heapq.heappop(open_heap)
+        open_heap: List[Node] = [start_node]
+        open_set: dict = {(sx, sy): start_node}
+        closed_set: Set[Tuple[int, int]] = set()
 
-        if current == goal:
-            return _reconstruct(came_from, goal)
+        while open_heap:
+            current = heapq.heappop(open_heap)
+            pos = (current.x, current.y)
 
-        if d > dist.get(current, float("inf")):
-            continue
+            if pos in closed_set:
+                continue
 
-        for nb in grid_map.neighbours(*current):
-            new_d = dist[current] + 1
-            if new_d < dist.get(nb, float("inf")):
-                dist[nb] = new_d
-                came_from[nb] = current
-                heapq.heappush(open_heap, (new_d, nb))
+            if pos == (gx, gy):
+                return self._reconstruct_path(current)
 
-    return None
+            closed_set.add(pos)
 
+            for dx, dy in self.directions:
+                nx, ny = current.x + dx, current.y + dy
+                npos = (nx, ny)
 
-# ── Path utility ──────────────────────────────────────────────────────────────
+                if not self.is_valid(nx, ny) or npos in closed_set:
+                    continue
 
-def _reconstruct(came_from: Dict[Pos, Optional[Pos]], goal: Pos) -> List[Pos]:
-    path: List[Pos] = []
-    node: Optional[Pos] = goal
-    while node is not None:
-        path.append(node)
-        node = came_from[node]
-    path.reverse()
-    return path
+                move_cost = 1.4142 if (dx != 0 and dy != 0) else 1.0
+                tentative_g = current.g + move_cost
 
+                if npos in open_set and open_set[npos].g <= tentative_g:
+                    continue
 
-def path_length(path: List[Pos]) -> int:
-    """Number of steps in a path (edges, not nodes)."""
-    return max(0, len(path) - 1)
+                neighbor = Node(nx, ny, g=tentative_g, parent=current)
+                neighbor.h = self.heuristic(neighbor, goal_node)
+                neighbor.f = neighbor.g + neighbor.h
 
+                heapq.heappush(open_heap, neighbor)
+                open_set[npos] = neighbor
 
-def find_path(grid_map, start: Pos, goal: Pos, algorithm: str = "astar") -> Optional[List[Pos]]:
-    """Dispatcher: choose algorithm by name."""
-    if algorithm == "astar":
-        return astar(grid_map, start, goal)
-    elif algorithm == "dijkstra":
-        return dijkstra(grid_map, start, goal)
-    else:
-        raise ValueError(f"Unknown algorithm: {algorithm!r}. Use 'astar' or 'dijkstra'.")
+        return None  # No path found
+
+    def _reconstruct_path(self, node: Node) -> List[Tuple[int, int]]:
+        """Reconstruct path by backtracking parent nodes."""
+        path = []
+        current = node
+        while current:
+            path.append((current.x, current.y))
+            current = current.parent
+        return list(reversed(path))
+
+    def path_length(self, path: List[Tuple[int, int]]) -> float:
+        """Calculate total path length."""
+        if not path or len(path) < 2:
+            return 0.0
+        total = 0.0
+        for i in range(1, len(path)):
+            dx = path[i][0] - path[i-1][0]
+            dy = path[i][1] - path[i-1][1]
+            total += (dx*dx + dy*dy) ** 0.5
+        return total

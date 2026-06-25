@@ -1,104 +1,41 @@
-# Spec — 001 Warehouse Robot Navigation Agent
+# Spec
 
-## Overview
-Train a reinforcement learning agent to control a mobile warehouse robot that picks items from shelves and delivers them to packing stations, efficiently and safely, in the presence of other robots and humans.
+## API Specification
 
----
+### Base URL
+- Local: http://localhost:5000
+- Production: https://speckit-api.onrender.com
 
-## System Architecture
+### Response Format
+All endpoints return:
+  success: true or false
+  message: string
+  data: object
 
-```
-┌─────────────────────────────────────────────┐
-│              Warehouse Simulator             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-│  │  Robot   │  │  Humans  │  │  Shelves │  │
-│  │  Agent   │  │ (random) │  │ + Items  │  │
-│  └────┬─────┘  └──────────┘  └──────────┘  │
-│       │ obs / reward                         │
-└───────┼─────────────────────────────────────┘
-        │
-   ┌────▼────┐
-   │   PPO   │  ← Policy Network (MLP, 2 hidden layers)
-   │  Agent  │
-   └─────────┘
-```
+### Endpoints
 
----
+GET  /health                 — API health check
+GET  /api/warehouse          — Full warehouse layout
+GET  /api/items              — List items (q, page, per_page params)
+GET  /api/items/:id          — Single item
+GET  /api/items/low-stock    — Items below reorder point
+GET  /api/robots             — All robots + fleet summary
+GET  /api/robots/:id         — Single robot state
+POST /api/robots/:id/charge  — Charge robot to 100%
+POST /api/path               — A* path: {start:[x,y], goal:[x,y]}
+POST /api/route              — TSP route: {start:[x,y], stops:[[x,y]...]}
+POST /api/pick               — Pick order: {item_ids:["ITM001"...]}
 
-## Environment Specification
+## Data Models
 
-| Parameter | Value |
-|---|---|
-| Grid size | 20 × 20 |
-| Shelves | 40 (fixed positions) |
-| Packing stations | 4 (fixed, corners) |
-| Robots (Phase 1) | 1 RL agent + 3 rule-based |
-| Humans | 2 (random walk) |
-| Timestep | 1 action per step |
-| Max episode length | 200 steps |
-| Observation space | 5×5 local grid + 5 scalars = 130 dims |
-| Action space | Discrete(6) |
+### Robot fields
+  id, name, x, y, battery, status, is_low_battery,
+  is_available, total_distance, total_picks,
+  error_message, current_task
 
----
+### Status values
+  idle, moving, picking, charging, error, returning
 
-## Observation Vector
-```
-[
-  local_grid (5×5×3 one-hot: empty/shelf/robot/human/obstacle),  # 75 values
-  target_shelf_id_normalized,      # 1 value
-  target_station_id_normalized,    # 1 value
-  battery_level,                   # 1 value (v2.0)
-  cargo_status,                    # 1 value (0 or 1)
-  steps_remaining_normalized       # 1 value
-]
-```
-Total: **80-dimensional** flat observation vector.
-
----
-
-## Reward Function
-
-| Event | Reward |
-|---|---|
-| Successful delivery | +20 |
-| Step toward current target | +1 |
-| Collision | -10 |
-| Per timestep | -1 |
-| Episode timeout | -5 |
-
----
-
-## Policy Network
-- **Architecture**: MLP — Input(80) → Dense(256) → ReLU → Dense(128) → ReLU → Output(6)
-- **Algorithm**: PPO (clip ε=0.2, entropy coeff=0.01, GAE λ=0.95)
-- **Training**: 5M timesteps, batch size 2048, 10 epochs per update
-
----
-
-## Success Criteria
-
-| Metric | Phase 1 Target |
-|---|---|
-| Delivery success rate | ≥ 80% |
-| Avg steps per delivery | ≤ 60 |
-| Collision rate | < 5% of episodes |
-| Training convergence | < 5M timesteps |
-
----
-
-## Phase Roadmap
-
-**Phase 1 (current):** Single RL agent, rule-based rivals, static layout, dry run.
-
-**Phase 2:** Multi-agent RL (MAPPO), all robots learn simultaneously, shared critic.
-
-**Phase 3:** Real-world sim-to-real transfer on a physical robot platform.
-
----
-
-## Out of Scope (v1.0)
-- Battery management
-- Multi-item carrying
-- Inter-robot communication
-- Wet/damaged floor conditions
-- Dynamic shelf repositioning
+### Item fields
+  id, name, category, weight_kg, location_id,
+  quantity, reorder_point, supplier

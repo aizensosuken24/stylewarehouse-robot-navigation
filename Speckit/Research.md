@@ -1,52 +1,50 @@
-# Research — 001 Warehouse Robot Navigation Agent
+# Research
 
-## 1. Problem Domain Overview
-Warehouse automation is one of the fastest-growing applications of robotics. Companies like Amazon, Ocado, and DHL deploy fleets of mobile robots that must coordinate in real time. The core challenge is **multi-robot path planning in dynamic environments** — a problem well-suited to RL because rule-based planners struggle with unpredictability (humans, robot failures, congestion).
+## Pathfinding Algorithms Considered
 
----
+### A* (chosen)
+- Optimal and complete for weighted grids
+- Heuristic: Manhattan distance (no diagonal movement default)
+- Time complexity: O(E log V) where E = edges, V = vertices
+- Well-suited for sparse warehouse grids with wall obstacles
 
-## 2. Relevant Prior Work
+### Dijkstra
+- Optimal but no heuristic — slower than A* in practice
+- Considered and rejected in favour of A*
 
-| Work | Key Contribution | Relevance |
-|---|---|---|
-| Amazon Kiva System | Shelf-to-person model using centralized control | Baseline architecture reference |
-| PRIMAL (Sartoretti et al., 2019) | Multi-agent RL for path planning on grids | Direct algorithm inspiration |
-| MAPPO (Yu et al., 2021) | Shared critic for cooperative MARL | Phase 2 algorithm |
-| MiniGrid (Chevalier-Bellamare et al.) | Lightweight grid gym env | Environment design reference |
-| FlowBot (2023) | RL for articulated object manipulation | Pickup/drop action modeling |
+### BFS
+- Optimal only for uniform-cost grids
+- Fast but no heuristic; acceptable fallback if no weights needed
 
----
+## TSP Heuristics Considered
 
-## 3. Key Challenges
+### Nearest-Neighbour (chosen as base)
+- O(n²) greedy construction
+- Gets within ~20-25% of optimal on average
+- Simple to implement; good enough for warehouse pick orders (n < 50 stops)
 
-**Sparse rewards** — deliveries are infrequent; shaped rewards needed to guide early learning.
+### 2-opt Improvement (applied on top)
+- Iteratively reverses sub-routes to eliminate crossings
+- Reduces NN tour length by ~5-10% in practice
+- O(n²) per iteration, fast for small n
 
-**Partial observability** — robot sees only a local window; must infer global congestion from local signals.
+### Exact TSP (rejected for MVP)
+- Optimal but exponential; impractical for n > 20 stops without specialised solver
 
-**Multi-agent credit assignment** — in Phase 2, attributing team success to individual robot actions is non-trivial.
+## Deployment Research
 
-**Deadlocks** — two robots blocking each other head-on; requires emergent negotiation or explicit tie-breaking.
+### Backend: Render
+- Free tier supports Python web services
+- Auto-detects render.yaml blueprint
+- Injects PORT environment variable automatically
+- Supports gunicorn WSGI out of the box
 
----
+### Frontend: Vercel
+- Zero-config static deploy from vercel.json
+- CDN-backed globally; ideal for dashboard SPA
+- Environment variables set per-project in dashboard
 
-## 4. State-of-the-Art Benchmarks
-- **Throughput**: Top systems achieve ~600 picks/hour per robot in real warehouses.
-- **Collision rate**: Production systems target < 0.001 collisions per 1,000 moves.
-- **RL baseline (PRIMAL)**: ~85% success rate in 40×40 grids with 10 agents.
-
-Our Phase 1 target: **≥80% delivery success rate** in a 20×20 grid with 4 robots.
-
----
-
-## 5. Environment & Tooling
-- **Simulator**: Custom `gymnasium` env (grid-world, configurable layout)
-- **Training**: Stable-Baselines3 for PPO; custom MAPPO implementation for Phase 2
-- **Logging**: Weights & Biases (wandb)
-- **Hardware**: Single GPU (RTX 3090) sufficient for Phase 1; multi-GPU for Phase 2
-
----
-
-## 6. Open Questions for Future Research
-- Can the agent generalize to unseen warehouse layouts zero-shot?
-- Does communication between agents (e.g., sharing intended paths) significantly improve throughput?
-- How does performance degrade as human density increases?
+## CORS Strategy
+- Flask-CORS reads allowed origins from config.ALLOWED_ORIGINS
+- FRONTEND_URL env var set on Render to Vercel deployment URL
+- Supports multiple origins (local dev + production) via comma-separated ALLOWED_ORIGINS

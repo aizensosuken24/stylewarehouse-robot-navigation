@@ -1,33 +1,42 @@
-# config.py — StyleWarehouse Robot Navigation
-# Central configuration for the simulation.
+"""
+Configuration for Speckit Warehouse Robot System.
+All environment-sensitive settings are loaded from environment variables
+with safe defaults for local development.
+"""
+import os
+from pathlib import Path
 
-# ── Warehouse Layout ──────────────────────────────────────────────────────────
-WAREHOUSE_ROWS = 15          # number of rows in the grid
-WAREHOUSE_COLS = 25          # number of columns in the grid
-DEPOT_POSITION = (0, 0)      # (row, col) — robot starts and ends here
+# ── Project root ───────────────────────────────────────────────────────────────
+BASE_DIR = Path(__file__).resolve().parent
 
-# ── Cell Type Constants ───────────────────────────────────────────────────────
-CELL_OPEN     = 0
-CELL_SHELF    = 1
-CELL_DEPOT    = 2
-CELL_OBSTACLE = 3
-CELL_AISLE    = 4
+# ── Data paths ─────────────────────────────────────────────────────────────────
+DATA_DIR = BASE_DIR / "data"
+WAREHOUSE_LAYOUT_PATH = str(DATA_DIR / "warehouse_layout.json")
+ITEM_CATALOGUE_PATH   = str(DATA_DIR / "item_catalogue.csv")
 
-CELL_SYMBOLS = {
-    CELL_OPEN:     ".",
-    CELL_SHELF:    "S",
-    CELL_DEPOT:    "D",
-    CELL_OBSTACLE: "#",
-    CELL_AISLE:    " ",
-}
+# ── Server ─────────────────────────────────────────────────────────────────────
+HOST  = os.getenv("HOST", "0.0.0.0")
+PORT  = int(os.getenv("PORT", 5000))
+DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 
-# ── Robot ─────────────────────────────────────────────────────────────────────
-ROBOT_BATTERY_CAPACITY = 500   # steps before recharge needed
-ROBOT_SPEED = 1                # cells per tick (for animation)
+# ── CORS ───────────────────────────────────────────────────────────────────────
+# In production, set FRONTEND_URL to your Vercel deployment URL
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:3000"          # local dev default
+)
 
-# ── Pathfinding ───────────────────────────────────────────────────────────────
-ALGORITHM = "astar"            # "astar" | "dijkstra"
+# Comma-separated list of allowed origins (overrides FRONTEND_URL if set)
+_extra_origins = os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = (
+    [o.strip() for o in _extra_origins.split(",") if o.strip()]
+    if _extra_origins
+    else [FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5000"]
+)
 
-# ── Files ─────────────────────────────────────────────────────────────────────
-LAYOUT_FILE    = "data/warehouse_layout.json"
-CATALOGUE_FILE = "data/item_catalogue.csv"
+# ── Grid defaults ──────────────────────────────────────────────────────────────
+GRID_WIDTH  = int(os.getenv("GRID_WIDTH",  20))
+GRID_HEIGHT = int(os.getenv("GRID_HEIGHT", 20))
+
+# ── Robot defaults ─────────────────────────────────────────────────────────────
+LOW_BATTERY_THRESHOLD = float(os.getenv("LOW_BATTERY_THRESHOLD", 20.0))

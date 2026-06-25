@@ -1,140 +1,118 @@
-"""
-tests/test_robot.py
-Unit tests for Robot and Order classes.
-"""
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+"""Tests for Robot and FleetManager."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import unittest
-from src.warehouse.map import build_default_map
-from src.warehouse.catalogue import ItemCatalogue, Item
-from src.robot.robot import Robot
-from src.robot.order import Order, OrderLine
+import pytest
+from src.robot.robot import Robot, RobotStatus
+from src.robot.fleet import FleetManager
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def make_catalogue():
-    cat = ItemCatalogue()
-    cat.add_item(Item("SW001","Classic Tee","Tops","StyleCo","M","White",0,3,10))
-    cat.add_item(Item("SW002","Slim Jeans","Trousers","DenimX","32","Blue",0,6,5))
-    cat.add_item(Item("SW003","Hoodie","Tops","StreetWear","L","Black",0,9,8))
-    return cat
-
-def make_robot():
-    wm  = build_default_map()
-    cat = make_catalogue()
-    return Robot("TestBot", wm, cat), wm, cat
+@pytest.fixture
+def robot():
+    return Robot("R1", "Alpha", x=0, y=0, battery=100.0)
 
 
-# ── Order tests ───────────────────────────────────────────────────────────────
-
-class TestOrder(unittest.TestCase):
-
-    def test_add_items(self):
-        o = Order("ORD-001", [("SW001", 1), ("SW002", 2)])
-        self.assertEqual(len(o), 2)
-
-    def test_mark_picked(self):
-        o = Order("ORD-002", [("SW001", 1)])
-        self.assertFalse(o.is_complete())
-        o.mark_picked("SW001")
-        self.assertTrue(o.is_complete())
-
-    def test_pending_skus(self):
-        o = Order("ORD-003", [("SW001", 1), ("SW002", 1)])
-        o.mark_picked("SW001")
-        self.assertEqual(o.pending_skus(), ["SW002"])
-
-    def test_summary(self):
-        o = Order("ORD-004", [("SW001", 1)])
-        summary = o.summary()
-        self.assertIn("ORD-004", summary)
-
-    def test_duplicate_sku_adds_quantity(self):
-        o = Order("ORD-005")
-        o.add_item("SW001", 2)
-        o.add_item("SW001", 3)
-        self.assertEqual(o.lines["SW001"].quantity, 5)
+@pytest.fixture
+def fleet():
+    fm = FleetManager()
+    fm.add_robot(Robot("R1", "Alpha", x=0, y=0, battery=100.0))
+    fm.add_robot(Robot("R2", "Beta",  x=10, y=10, battery=85.0))
+    fm.add_robot(Robot("R3", "Gamma", x=5, y=5, battery=15.0))  # Low battery
+    return fm
 
 
-# ── Robot tests ───────────────────────────────────────────────────────────────
+class TestRobot:
+    def test_initial_state(self, robot):
+        assert robot.id == "R1"
+        assert robot.battery == 100.0
+        assert robot.status == RobotStatus.IDLE
+        assert robot.position == (0, 0)
+        assert robot.is_available
 
-class TestRobot(unittest.TestCase):
+    def test_move_drains_battery(self, robot):
+        path = [(0, 0), (1, 0), (2, 0), (3, 0)]
+        robot.move_to(path)
+        assert robot.battery < 100.0
+        assert robot.position == (3, 0)
+        assert robot.status == RobotStatus.IDLE
 
-    def test_initial_position(self):
-        robot, _, _ = make_robot()
-        self.assertEqual(robot.position, (0, 0))
-
-    def test_navigate_to_reachable(self):
-        robot, _, _ = make_robot()
-        path = robot.navigate_to((0, 6), verbose=False)
-        self.assertIsNotNone(path)
-        self.assertEqual(robot.position, (0, 6))
-
-    def test_battery_decreases(self):
-        robot, _, _ = make_robot()
+    def test_move_skip_starting_cell(self, robot):
+        path = [(0, 0), (1, 0)]
         initial_battery = robot.battery
-        robot.navigate_to((0, 6), verbose=False)
-        self.assertLess(robot.battery, initial_battery)
+        robot.move_to(path)
+        assert robot.battery == initial_battery - 0.5
+        assert robot.total_distance == 1.0
 
-    def test_recharge(self):
-        robot, _, _ = make_robot()
-        robot.battery = 10
-        robot.recharge()
-        from config import ROBOT_BATTERY_CAPACITY
-        self.assertEqual(robot.battery, ROBOT_BATTERY_CAPACITY)
+    def test_move_empty_path(self, robot):
+        result = robot.move_to([])
+        assert result is True
+        assert robot.position == (0, 0)
 
-    def test_execute_order(self):
-        robot, _, _ = make_robot()
-        order = Order("ORD-TEST", [("SW001", 1), ("SW002", 1)])
-        result = robot.execute_order(order, verbose=False)
-        self.assertTrue(result)
-        self.assertTrue(order.is_complete())
+    def test_insufficient_battery_move(self):
+        r = Robot("R99", "Low", battery=0.1)
+        result = r.move_to([(0, 0), (1, 0), (2, 0)])
+        assert result is False
+        assert r.status == RobotStatus.ERROR
 
-    def test_execute_order_unknown_sku(self):
-        robot, _, _ = make_robot()
-        order = Order("ORD-BAD", [("UNKNOWN_SKU", 1)])
-        result = robot.execute_order(order, verbose=False)
-        # Should handle gracefully and return False (nothing picked)
-        self.assertFalse(result)
+    def test_pick_item(self, robot):
+        result = robot.pick_item("ITM001")
+        assert result is True
+        assert robot.total_picks == 1
+        assert robot.battery < 100.0
 
-    def test_robot_returns_to_depot(self):
-        robot, _, _ = make_robot()
-        order = Order("ORD-DEPOT", [("SW001", 1)])
-        robot.execute_order(order, verbose=False)
-        self.assertEqual(robot.position, (0, 0))
+    def test_charge(self, robot):
+        robot.battery = 30.0
+        robot.charge(100.0)
+        assert robot.battery == 100.0
+        assert robot.status == RobotStatus.IDLE
 
+    def test_low_battery_flag(self):
+        r = Robot("R2", "Beta", battery=15.0)
+        assert r.is_low_battery
+        assert not r.is_available
 
-# ── Catalogue tests ───────────────────────────────────────────────────────────
+    def test_to_dict(self, robot):
+        d = robot.to_dict()
+        assert d["id"] == "R1"
+        assert "battery" in d
+        assert "status" in d
+        assert "x" in d and "y" in d
 
-class TestCatalogue(unittest.TestCase):
-
-    def test_find_existing(self):
-        cat = make_catalogue()
-        item = cat.find("SW001")
-        self.assertIsNotNone(item)
-        self.assertEqual(item.name, "Classic Tee")
-
-    def test_find_missing(self):
-        cat = make_catalogue()
-        self.assertIsNone(cat.find("NOPE"))
-
-    def test_search_by_name(self):
-        cat = make_catalogue()
-        results = cat.search_by_name("tee")
-        self.assertTrue(any(i.sku == "SW001" for i in results))
-
-    def test_len(self):
-        cat = make_catalogue()
-        self.assertEqual(len(cat), 3)
-
-    def test_items_at(self):
-        cat = make_catalogue()
-        items = cat.items_at(0, 3)
-        self.assertEqual(len(items), 1)
-        self.assertEqual(items[0].sku, "SW001")
+    def test_error_and_clear(self, robot):
+        robot.set_error("Test error")
+        assert robot.status == RobotStatus.ERROR
+        robot.clear_error()
+        assert robot.status == RobotStatus.IDLE
+        assert robot.error_message is None
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestFleetManager:
+    def test_get_robot(self, fleet):
+        r = fleet.get_robot("R1")
+        assert r is not None
+        assert r.name == "Alpha"
+
+    def test_get_missing_robot(self, fleet):
+        assert fleet.get_robot("R99") is None
+
+    def test_get_available_robot(self, fleet):
+        r = fleet.get_available_robot()
+        assert r is not None
+        assert r.is_available
+
+    def test_nearest_available_robot(self, fleet):
+        # R3 has low battery so shouldn't be returned
+        r = fleet.get_nearest_available_robot(9, 9)
+        assert r is not None
+        assert r.id == "R2"  # closest with good battery
+
+    def test_fleet_summary(self, fleet):
+        summary = fleet.fleet_summary()
+        assert summary["total"] == 3
+        assert "average_battery" in summary
+        assert summary["low_battery"] == 1
+
+    def test_all_robots_status(self, fleet):
+        statuses = fleet.all_robots_status()
+        assert len(statuses) == 3

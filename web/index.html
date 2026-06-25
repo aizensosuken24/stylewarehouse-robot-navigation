@@ -3,150 +3,124 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StyleWarehouse — Robot Navigation</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css">
+  <title>Speckit — Warehouse Robot Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
-  <!-- HEADER -->
-  <header>
-    <div class="logo">
-      <span class="logo-icon">⬡</span>
-      <span>StyleWarehouse <em>NAV</em></span>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="topbar-logo">⬡</span>
+      <span class="topbar-name">Speckit</span>
     </div>
-    <div class="status-pill" id="apiStatus">
-      <span class="dot"></span> Backend offline
+    <nav class="topbar-nav">
+      <button class="nav-btn active" data-panel="dashboard">Dashboard</button>
+      <button class="nav-btn" data-panel="pathfinder">Pathfinder</button>
+      <button class="nav-btn" data-panel="inventory">Inventory</button>
+      <button class="nav-btn" data-panel="robots">Robots</button>
+    </nav>
+    <div class="topbar-status">
+      <span id="api-status" class="status-dot offline"></span>
+      <span id="api-label">Connecting…</span>
     </div>
   </header>
 
-  <!-- HERO -->
-  <section class="hero">
-    <div class="hero-text">
-      <p class="eyebrow">Warehouse Path Planning</p>
-      <h1>Shortest route,<br/><span class="accent">zero wasted steps.</span></h1>
-      <p class="sub">Set a start and end point on the grid, configure your robot, and let the algorithm find the optimal path through your warehouse layout.</p>
-    </div>
-    <div class="hero-badge">
-      <span class="badge-num" id="heroSteps">—</span>
-      <span class="badge-label">steps in last path</span>
-    </div>
-  </section>
+  <main class="content">
 
-  <!-- MAIN GRID -->
-  <main>
-
-    <!-- LEFT: CONTROLS -->
-    <aside class="controls-panel">
-
-      <div class="panel-section">
-        <h2>Grid Setup</h2>
-        <label>Rows
-          <input type="number" id="rows" value="10" min="5" max="30" />
-        </label>
-        <label>Columns
-          <input type="number" id="cols" value="10" min="5" max="30" />
-        </label>
-        <button class="btn-secondary" id="btnReset">Reset Grid</button>
+    <!-- ── Dashboard ───────────────────────────────────────── -->
+    <section id="panel-dashboard" class="panel active">
+      <div class="panel-header">
+        <h1>Warehouse Overview</h1>
+        <button class="btn btn-ghost" id="refresh-btn">↻ Refresh</button>
       </div>
 
-      <div class="panel-section">
-        <h2>Waypoints</h2>
-        <label>Start (row, col)
-          <div class="coord-pair">
-            <input type="number" id="startRow" value="0" min="0" placeholder="Row" />
-            <input type="number" id="startCol" value="0" min="0" placeholder="Col" />
-          </div>
-        </label>
-        <label>End (row, col)
-          <div class="coord-pair">
-            <input type="number" id="endRow" value="9" min="0" placeholder="Row" />
-            <input type="number" id="endCol" value="9" min="0" placeholder="Col" />
-          </div>
-        </label>
+      <div class="stats-row" id="stats-row">
+        <div class="stat-card"><div class="stat-val" id="stat-robots">—</div><div class="stat-label">Robots</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-idle">—</div><div class="stat-label">Idle</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-battery">—%</div><div class="stat-label">Avg Battery</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-items">—</div><div class="stat-label">SKUs</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-lowstock">—</div><div class="stat-label">Low Stock</div></div>
       </div>
 
-      <div class="panel-section">
-        <h2>Algorithm</h2>
-        <label>Path planner
-          <select id="algorithm">
-            <option value="astar">A* (recommended)</option>
-            <option value="dijkstra">Dijkstra</option>
-            <option value="bfs">BFS</option>
-          </select>
-        </label>
-        <label class="toggle-label">
-          <input type="checkbox" id="allowDiagonal" />
-          Allow diagonal movement
-        </label>
-      </div>
-
-      <div class="panel-section">
-        <h2>Backend API</h2>
-        <label>URL
-          <input type="text" id="apiUrl" placeholder="https://your-api.render.com" />
-        </label>
-        <button class="btn-ghost" id="btnPing">Ping</button>
-      </div>
-
-      <button class="btn-primary" id="btnRun">
-        <span>Find Path</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-
-    </aside>
-
-    <!-- CENTER: GRID -->
-    <section class="grid-section">
-      <div class="grid-toolbar">
-        <span class="tool-label">Click cells to toggle obstacles</span>
-        <div class="legend">
-          <span class="leg-item"><span class="leg-box start"></span>Start</span>
-          <span class="leg-item"><span class="leg-box end"></span>End</span>
-          <span class="leg-item"><span class="leg-box obstacle"></span>Obstacle</span>
-          <span class="leg-item"><span class="leg-box path"></span>Path</span>
+      <div class="grid-two">
+        <div class="card">
+          <div class="card-title">Fleet Status</div>
+          <div id="fleet-list" class="robot-list"></div>
         </div>
-      </div>
-      <div class="grid-wrapper">
-        <div class="grid-canvas" id="gridCanvas"></div>
+        <div class="card">
+          <div class="card-title">Warehouse Map</div>
+          <canvas id="map-canvas" width="400" height="400"></canvas>
+        </div>
       </div>
     </section>
 
-    <!-- RIGHT: OUTPUT -->
-    <aside class="output-panel">
-
-      <div class="stat-card">
-        <span class="stat-val" id="statSteps">—</span>
-        <span class="stat-label">Steps</span>
+    <!-- ── Pathfinder ─────────────────────────────────────── -->
+    <section id="panel-pathfinder" class="panel">
+      <div class="panel-header">
+        <h1>Pathfinder</h1>
       </div>
-      <div class="stat-card">
-        <span class="stat-val" id="statCost">—</span>
-        <span class="stat-label">Total Cost</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-val" id="statTime">—</span>
-        <span class="stat-label">Compute (ms)</span>
-      </div>
-
-      <div class="panel-section">
-        <h2>Path Sequence</h2>
-        <div class="path-list" id="pathList">
-          <p class="muted">No path computed yet.</p>
+      <div class="grid-two">
+        <div class="card">
+          <div class="card-title">Find Path</div>
+          <div class="form-group">
+            <label>Start X</label><input type="number" id="sx" value="0" min="0" max="19" />
+            <label>Start Y</label><input type="number" id="sy" value="0" min="0" max="19" />
+          </div>
+          <div class="form-group">
+            <label>Goal X</label><input type="number" id="gx" value="8" min="0" max="19" />
+            <label>Goal Y</label><input type="number" id="gy" value="2" min="0" max="19" />
+          </div>
+          <button class="btn btn-primary" id="find-path-btn">Find Path</button>
+          <div id="path-result" class="result-box hidden"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Path Visualisation</div>
+          <canvas id="path-canvas" width="400" height="400"></canvas>
         </div>
       </div>
 
-      <div class="panel-section">
-        <h2>API Response</h2>
-        <pre class="json-box" id="jsonBox">{ }</pre>
+      <div class="card mt-4">
+        <div class="card-title">Pick Route Optimiser (TSP)</div>
+        <p class="hint">Enter comma-separated item IDs to generate an optimised pick route.</p>
+        <div class="form-group">
+          <label>Item IDs</label>
+          <input type="text" id="pick-items" placeholder="ITM001, ITM003, ITM005" />
+        </div>
+        <button class="btn btn-primary" id="pick-btn">Optimise Route</button>
+        <div id="pick-result" class="result-box hidden"></div>
       </div>
+    </section>
 
-    </aside>
+    <!-- ── Inventory ──────────────────────────────────────── -->
+    <section id="panel-inventory" class="panel">
+      <div class="panel-header">
+        <h1>Inventory</h1>
+        <input type="text" id="item-search" placeholder="Search items…" class="search-input" />
+      </div>
+      <div class="card">
+        <table class="data-table" id="items-table">
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Category</th>
+              <th>Qty</th><th>Reorder</th><th>Location</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="items-tbody"></tbody>
+        </table>
+        <div id="items-pagination" class="pagination"></div>
+      </div>
+    </section>
+
+    <!-- ── Robots ─────────────────────────────────────────── -->
+    <section id="panel-robots" class="panel">
+      <div class="panel-header">
+        <h1>Robot Fleet</h1>
+      </div>
+      <div id="robot-cards" class="robot-grid"></div>
+    </section>
 
   </main>
 
-  <!-- TOAST -->
-  <div class="toast" id="toast"></div>
+  <div id="toast" class="toast hidden"></div>
 
   <script src="app.js"></script>
 </body>

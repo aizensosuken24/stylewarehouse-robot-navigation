@@ -1,118 +1,98 @@
-"""
-tests/test_pathfinder.py
-Unit tests for the A* and Dijkstra pathfinders.
-"""
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+"""Tests for A* pathfinder."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import unittest
-from src.warehouse.map import WarehouseMap, build_default_map
-from src.navigation.pathfinder import astar, dijkstra, find_path, path_length
-from config import CELL_OBSTACLE
+import pytest
+from src.navigation.pathfinder import AStarPathfinder, Node
 
 
-class SimpleGrid:
-    """Minimal 5×5 open grid for isolated pathfinder testing."""
-    def __init__(self, rows=5, cols=5, obstacles=None):
-        self.rows = rows
-        self.cols = cols
-        self.grid = [[0]*cols for _ in range(rows)]
-        for r, c in (obstacles or []):
-            self.grid[r][c] = CELL_OBSTACLE
-
-    def is_walkable(self, r, c):
-        return 0 <= r < self.rows and 0 <= c < self.cols and self.grid[r][c] != CELL_OBSTACLE
-
-    def neighbours(self, r, c):
-        return [(nr, nc) for nr, nc in [(r-1,c),(r+1,c),(r,c-1),(r,c+1)]
-                if self.is_walkable(nr, nc)]
+@pytest.fixture
+def empty_grid():
+    return AStarPathfinder(10, 10)
 
 
-class TestAstar(unittest.TestCase):
-
-    def test_same_start_goal(self):
-        g = SimpleGrid()
-        path = astar(g, (0,0), (0,0))
-        self.assertEqual(path, [(0,0)])
-
-    def test_simple_path(self):
-        g = SimpleGrid()
-        path = astar(g, (0,0), (4,4))
-        self.assertIsNotNone(path)
-        self.assertEqual(path[0], (0,0))
-        self.assertEqual(path[-1], (4,4))
-        self.assertEqual(path_length(path), 8)   # Manhattan optimal
-
-    def test_no_path(self):
-        # Wall of obstacles across column 2
-        obs = [(r, 2) for r in range(5)]
-        g = SimpleGrid(obstacles=obs)
-        path = astar(g, (0,0), (0,4))
-        self.assertIsNone(path)
-
-    def test_path_around_obstacle(self):
-        # Single obstacle at (0,1) — must go around
-        g = SimpleGrid(obstacles=[(0,1)])
-        path = astar(g, (0,0), (0,2))
-        self.assertIsNotNone(path)
-        self.assertNotIn((0,1), path)
-        self.assertEqual(path[-1], (0,2))
-
-    def test_adjacent_goal(self):
-        g = SimpleGrid()
-        path = astar(g, (2,2), (2,3))
-        self.assertEqual(path_length(path), 1)
+@pytest.fixture
+def grid_with_wall():
+    pf = AStarPathfinder(10, 10)
+    # Vertical wall at x=5, y=0..8
+    pf.set_obstacles({(5, y) for y in range(9)})
+    return pf
 
 
-class TestDijkstra(unittest.TestCase):
+class TestNode:
+    def test_equality(self):
+        assert Node(1, 2) == Node(1, 2)
 
-    def test_same_result_as_astar(self):
-        g = SimpleGrid()
-        p_a = astar(g, (0,0), (4,4))
-        p_d = dijkstra(g, (0,0), (4,4))
-        self.assertEqual(path_length(p_a), path_length(p_d))
+    def test_hash(self):
+        s = {Node(1, 2), Node(1, 2), Node(3, 4)}
+        assert len(s) == 2
 
-    def test_no_path(self):
-        obs = [(r, 2) for r in range(5)]
-        g = SimpleGrid(obstacles=obs)
-        self.assertIsNone(dijkstra(g, (0,0), (0,4)))
-
-
-class TestFindPath(unittest.TestCase):
-
-    def test_dispatcher_astar(self):
-        g = SimpleGrid()
-        path = find_path(g, (0,0), (3,3), algorithm="astar")
-        self.assertIsNotNone(path)
-
-    def test_dispatcher_dijkstra(self):
-        g = SimpleGrid()
-        path = find_path(g, (0,0), (3,3), algorithm="dijkstra")
-        self.assertIsNotNone(path)
-
-    def test_dispatcher_invalid(self):
-        g = SimpleGrid()
-        with self.assertRaises(ValueError):
-            find_path(g, (0,0), (1,1), algorithm="bfs")
+    def test_lt(self):
+        a = Node(0, 0, g=1, h=1)
+        b = Node(0, 0, g=5, h=5)
+        assert a < b
 
 
-class TestWarehouseMap(unittest.TestCase):
+class TestAStarPathfinder:
+    def test_same_start_goal(self, empty_grid):
+        path = empty_grid.find_path((0, 0), (0, 0))
+        assert path == [(0, 0)]
 
-    def test_default_map_walkable(self):
-        wm = build_default_map()
-        # depot should be walkable
-        self.assertTrue(wm.is_walkable(0, 0))
+    def test_simple_path(self, empty_grid):
+        path = empty_grid.find_path((0, 0), (3, 0))
+        assert path is not None
+        assert path[0] == (0, 0)
+        assert path[-1] == (3, 0)
+        assert len(path) == 4
 
-    def test_out_of_bounds_not_walkable(self):
-        wm = build_default_map()
-        self.assertFalse(wm.is_walkable(-1, 0))
-        self.assertFalse(wm.is_walkable(999, 999))
+    def test_no_path_blocked(self):
+        pf = AStarPathfinder(5, 5)
+        # Block entire column
+        pf.set_obstacles({(2, y) for y in range(5)})
+        path = pf.find_path((0, 0), (4, 0))
+        assert path is None
 
-    def test_path_on_real_map(self):
-        wm = build_default_map()
-        path = astar(wm, (0,0), (0,6))
-        self.assertIsNotNone(path)
+    def test_path_around_wall(self, grid_with_wall):
+        # Must go around x=5 wall
+        path = grid_with_wall.find_path((0, 0), (9, 0))
+        assert path is not None
+        assert path[-1] == (9, 0)
+        # Path must go through y=9 (gap in wall)
+        xs = [p[0] for p in path]
+        assert 5 in xs  # crosses x=5 at y=9
 
+    def test_out_of_bounds_start(self, empty_grid):
+        path = empty_grid.find_path((-1, 0), (5, 5))
+        assert path is None
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_out_of_bounds_goal(self, empty_grid):
+        path = empty_grid.find_path((0, 0), (20, 20))
+        assert path is None
+
+    def test_path_length(self, empty_grid):
+        path = empty_grid.find_path((0, 0), (3, 4))
+        assert path is not None
+        length = empty_grid.path_length(path)
+        assert length > 0
+
+    def test_add_remove_obstacle(self, empty_grid):
+        empty_grid.add_obstacle(1, 0)
+        path = empty_grid.find_path((0, 0), (2, 0))
+        # Path should avoid (1,0)
+        assert path is not None
+        assert (1, 0) not in path
+
+        empty_grid.remove_obstacle(1, 0)
+        path2 = empty_grid.find_path((0, 0), (2, 0))
+        assert (1, 0) in path2  # Direct path now available
+
+    def test_diagonal_heuristic(self):
+        pf = AStarPathfinder(10, 10, allow_diagonal=True)
+        node_a = Node(0, 0)
+        node_b = Node(1, 1)
+        h = pf.heuristic(node_a, node_b)
+        assert abs(h - 1.41421356237) < 1e-9
+
+        path = pf.find_path((0, 0), (1, 1))
+        assert path == [(0, 0), (1, 1)]

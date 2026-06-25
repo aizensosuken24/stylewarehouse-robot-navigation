@@ -1,144 +1,134 @@
 """
-robot/robot.py
-Simulates the warehouse navigation robot.
+Robot module: Represents a warehouse robot with state, movement, and battery management.
 """
-from __future__ import annotations
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-
-from typing import List, Optional, Tuple
-from config import DEPOT_POSITION, ROBOT_BATTERY_CAPACITY, ALGORITHM
-from src.navigation.pathfinder import find_path
-from src.navigation.tsp import sequence_order
-from src.robot.order import Order
-
-Pos = Tuple[int, int]
+from typing import List, Tuple, Optional
+from enum import Enum
+import time
 
 
-class BatteryError(Exception):
-    pass
+class RobotStatus(str, Enum):
+    IDLE = "idle"
+    MOVING = "moving"
+    PICKING = "picking"
+    CHARGING = "charging"
+    ERROR = "error"
+    RETURNING = "returning"
 
 
 class Robot:
     """
-    Autonomous warehouse robot.
-
-    The robot:
-    1. Receives an Order.
-    2. Looks up each item's grid position via the catalogue.
-    3. Sequences the stops with TSP.
-    4. Navigates step-by-step using A* (or Dijkstra).
-    5. Picks each item and returns to the depot.
+    Warehouse robot with position tracking, battery management,
+    and task execution.
     """
 
-    def __init__(self, name: str, warehouse_map, catalogue, depot: Pos = DEPOT_POSITION):
+    BATTERY_PER_MOVE = 0.5       # % battery consumed per grid cell
+    BATTERY_PER_PICK = 1.0       # % battery consumed per pick action
+    BATTERY_CHARGE_RATE = 2.0    # % battery charged per second (simulated)
+    LOW_BATTERY_THRESHOLD = 20.0 # % battery to trigger return-to-charge
+
+    def __init__(self, robot_id: str, name: str,
+                 x: int = 0, y: int = 0, battery: float = 100.0):
+        self.id = robot_id
         self.name = name
-        self.map = warehouse_map
-        self.catalogue = catalogue
-        self.depot: Pos = depot
-        self.position: Pos = depot
-        self.battery: int = ROBOT_BATTERY_CAPACITY
-        self.carrying: List[str] = []   # picked SKUs
-        self.total_steps: int = 0
-        self.log: List[str] = []
+        self.x = x
+        self.y = y
+        self.battery = min(100.0, max(0.0, battery))
+        self.status = RobotStatus.IDLE
+        self.current_path: List[Tuple[int, int]] = []
+        self.current_task: Optional[dict] = None
+        self.completed_tasks: List[dict] = []
+        self.error_message: Optional[str] = None
+        self.total_distance: float = 0.0
+        self.total_picks: int = 0
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    @property
+    def position(self) -> Tuple[int, int]:
+        return (self.x, self.y)
 
-    def execute_order(self, order: Order, verbose: bool = True) -> bool:
+    @property
+    def is_low_battery(self) -> bool:
+        return self.battery <= self.LOW_BATTERY_THRESHOLD
+
+    @property
+    def is_available(self) -> bool:
+        return self.status in (RobotStatus.IDLE,) and not self.is_low_battery
+
+    def move_to(self, path: List[Tuple[int, int]]) -> bool:
         """
-        Full order execution:
-        1. Resolve item locations
-        2. Sequence stops (TSP)
-        3. Navigate to each stop and pick
-        4. Return to depot
-
-        Returns True if all items were picked successfully.
+        Simulate movement along a path.
+        Deducts battery per step.
+        Returns True if movement completed successfully.
         """
-        self._log(f"▶ Starting order {order.order_id}", verbose)
+        if not path:
+            return True
 
-        # 1. Resolve locations for pending SKUs
-        stops: List[Tuple[Pos, str]] = []
-        for sku in order.pending_skus():
-            item = self.catalogue.find(sku)
-            if item is None:
-                self._log(f"  ⚠ SKU {sku} not in catalogue — skipping", verbose)
-                continue
-            stops.append((item.location, sku))
+        # Skip the first element if the robot is already at that position
+        actual_steps = path
+        if path[0] == (self.x, self.y):
+            actual_steps = path[1:]
 
-        if not stops:
-            self._log("  No valid stops found.", verbose)
+        required_battery = len(actual_steps) * self.BATTERY_PER_MOVE
+        if self.battery < required_battery:
+            self.status = RobotStatus.ERROR
+            self.error_message = "Insufficient battery for path"
             return False
 
-        # 2. Sequence stops
-        positions = [pos for pos, _ in stops]
-        sku_map   = {pos: sku for pos, sku in stops}
-        sequenced = sequence_order(positions, self.position)
+        self.status = RobotStatus.MOVING
+        self.current_path = list(path)
 
-        # 3. Navigate and pick
-        for target in sequenced:
-            sku = sku_map.get(target, "?")
-            path = self._navigate_to(target, verbose)
-            if path is None:
-                self._log(f"  ✗ No path to {target} for {sku}", verbose)
-                continue
-            self._pick(sku, order, verbose)
+        for step in actual_steps:
+            self.x, self.y = step
+            self.battery = max(0.0, self.battery - self.BATTERY_PER_MOVE)
+            self.total_distance += 1.0
 
-        # 4. Return to depot
-        self._navigate_to(self.depot, verbose)
-        self._log(f"✔ Order {order.order_id} complete. Steps: {self.total_steps}", verbose)
-        self._log(order.summary(), verbose)
-        return order.is_complete()
+        self.current_path = []
+        self.status = RobotStatus.IDLE
+        return True
 
-    def navigate_to(self, target: Pos, verbose: bool = True) -> Optional[List[Pos]]:
-        """Public wrapper — navigate to a position and return the path."""
-        return self._navigate_to(target, verbose)
+    def pick_item(self, item_id: str) -> bool:
+        """
+        Simulate picking an item at current location.
+        """
+        if self.battery < self.BATTERY_PER_PICK:
+            self.error_message = "Insufficient battery to pick item"
+            return False
 
-    def recharge(self) -> None:
-        """Refill battery to full capacity."""
-        self.battery = ROBOT_BATTERY_CAPACITY
-        self._log("🔋 Battery recharged.")
+        self.status = RobotStatus.PICKING
+        self.battery = max(0.0, self.battery - self.BATTERY_PER_PICK)
+        self.total_picks += 1
+        self.status = RobotStatus.IDLE
+        return True
 
-    # ── Internals ─────────────────────────────────────────────────────────────
+    def charge(self, target_level: float = 100.0):
+        """Charge robot to target battery level."""
+        self.status = RobotStatus.CHARGING
+        self.battery = min(100.0, target_level)
+        if self.battery >= 100.0:
+            self.status = RobotStatus.IDLE
 
-    def _navigate_to(self, target: Pos, verbose: bool = True) -> Optional[List[Pos]]:
-        if self.position == target:
-            return [self.position]
+    def set_error(self, message: str):
+        self.status = RobotStatus.ERROR
+        self.error_message = message
 
-        path = find_path(self.map, self.position, target, ALGORITHM)
-        if path is None:
-            self._log(f"  ✗ No path from {self.position} → {target}", verbose)
-            return None
+    def clear_error(self):
+        self.status = RobotStatus.IDLE
+        self.error_message = None
 
-        steps = len(path) - 1
-        if steps > self.battery:
-            self._log(f"  ⚠ Low battery ({self.battery} steps left, need {steps})", verbose)
-            self.recharge()
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "x": self.x,
+            "y": self.y,
+            "battery": round(self.battery, 1),
+            "status": self.status.value,
+            "is_low_battery": self.is_low_battery,
+            "is_available": self.is_available,
+            "total_distance": round(self.total_distance, 1),
+            "total_picks": self.total_picks,
+            "error_message": self.error_message,
+            "current_task": self.current_task
+        }
 
-        self._log(f"  → Moving {self.position} → {target}  ({steps} steps)", verbose)
-        self.position = target
-        self.battery -= steps
-        self.total_steps += steps
-        return path
-
-    def _pick(self, sku: str, order: Order, verbose: bool = True) -> bool:
-        if order.mark_picked(sku):
-            self.carrying.append(sku)
-            self._log(f"  ✓ Picked {sku}", verbose)
-            return True
-        self._log(f"  ⚠ Could not pick {sku}", verbose)
-        return False
-
-    def _log(self, msg: str, verbose: bool = True) -> None:
-        self.log.append(msg)
-        if verbose:
-            print(msg)
-
-    def status(self) -> str:
-        return (
-            f"Robot '{self.name}' | pos={self.position} | "
-            f"battery={self.battery}/{ROBOT_BATTERY_CAPACITY} | "
-            f"carrying={self.carrying}"
-        )
-
-    def __repr__(self) -> str:
-        return f"Robot({self.name!r}, pos={self.position})"
+    def __repr__(self):
+        return f"Robot({self.id}, {self.name}, pos=({self.x},{self.y}), battery={self.battery:.0f}%)"

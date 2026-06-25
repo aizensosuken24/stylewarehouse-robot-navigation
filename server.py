@@ -1,173 +1,222 @@
 """
-StyleWarehouse Robot Navigation — FastAPI Backend
-Deploy on Render / Railway / any Python host.
-This wraps your existing src/ navigation logic.
+Speckit Warehouse Robot API Server
+Deployed on Render (backend).
 """
+import os
+import sys
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Tuple, Optional
-import time, sys, os
+# Ensure project root is on path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# ── Make sure src/ is importable ──────────────────────
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+from flask import Flask, request
+from flask_cors import CORS
 
-# Try to import your actual pathfinder.
-# If it doesn't exist yet, a built-in fallback is used.
-try:
-    from pathfinder import find_path          # your module
-    USING_BUILTIN = False
-except ImportError:
-    USING_BUILTIN = True
+import config
+from src.navigation.pathfinder import AStarPathfinder
+from src.navigation.tsp_solver import solve_tsp
+from src.robot.robot import Robot
+from src.robot.fleet import FleetManager
+from src.warehouse.warehouse import WarehouseLayout, InventoryManager
+from src.ui.responses import success_response, error_response, paginate
 
-app = FastAPI(title="StyleWarehouse Robot Navigation API", version="1.0.0")
+# ── App setup ──────────────────────────────────────────────────────────────────
+app = Flask(__name__)
+CORS(app, origins=config.ALLOWED_ORIGINS, supports_credentials=True)
 
-# ── CORS — allow any origin (fine for Vercel/Netlify) ─
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+# ── Initialise warehouse ───────────────────────────────────────────────────────
+layout    = WarehouseLayout(config.WAREHOUSE_LAYOUT_PATH)
+inventory = InventoryManager(config.ITEM_CATALOGUE_PATH)
+
+# Pathfinder
+pathfinder = AStarPathfinder(
+    grid_width=layout.width,
+    grid_height=layout.height,
+    obstacles=layout.obstacles
 )
 
-# ── SCHEMAS ────────────────────────────────────────────
-class GridSchema(BaseModel):
-    rows: int
-    cols: int
-    obstacles: List[List[int]] = []
+# Fleet
+fleet = FleetManager()
+for rb in layout.robots_initial:
+    fleet.add_robot(Robot(
+        robot_id=rb["id"],
+        name=rb["name"],
+        x=rb["x"],
+        y=rb["y"],
+        battery=rb.get("battery", 100.0)
+    ))
 
-class NavigateRequest(BaseModel):
-    grid: GridSchema
-    start: List[int]
-    end: List[int]
-    algorithm: str = "astar"
-    allow_diagonal: bool = False
 
-class NavigateResponse(BaseModel):
-    path: List[List[int]]
-    cost: float
-    algorithm: str
-    compute_ms: float
-
-# ── HEALTH ─────────────────────────────────────────────
-@app.get("/health")
+# ── Health ─────────────────────────────────────────────────────────────────────
+@app.route("/", methods=["GET"])
+@app.route("/health", methods=["GET"])
 def health():
-    return {"status": "ok", "builtin_pathfinder": USING_BUILTIN}
+    return success_response({"status": "ok", "version": "1.0.0"}, "Speckit API running")
 
-# ── NAVIGATE ───────────────────────────────────────────
-@app.post("/navigate", response_model=NavigateResponse)
-def navigate(req: NavigateRequest):
-    t0 = time.perf_counter()
 
-    grid_data = {
-        "rows":      req.grid.rows,
-        "cols":      req.grid.cols,
-        "obstacles": [tuple(o) for o in req.grid.obstacles],
-    }
+# ── Warehouse ──────────────────────────────────────────────────────────────────
+@app.route("/api/warehouse", methods=["GET"])
+def get_warehouse():
+    """Return full warehouse layout with live robot status."""
+    data = layout.to_dict()
+    data["robots"] = fleet.all_robots_status()
+    return success_response(data)
 
-    if not USING_BUILTIN:
-        # ── Delegate to your existing module ──────────
-        try:
-            path = find_path(
-                grid=grid_data,
-                start=tuple(req.start),
-                end=tuple(req.end),
-                algorithm=req.algorithm,
-                allow_diagonal=req.allow_diagonal,
-            )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+
+# ── Inventory ──────────────────────────────────────────────────────────────────
+@app.route("/api/items", methods=["GET"])
+def get_items():
+    query   = request.args.get("q", "")
+    page    = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 20))
+
+    items = inventory.search_items(query) if query else inventory.all_items()
+    return success_response(paginate(items, page, per_page))
+
+
+@app.route("/api/items/<item_id>", methods=["GET"])
+def get_item(item_id: str):
+    item = inventory.get_item(item_id)
+    if not item:
+        return error_response(f"Item '{item_id}' not found", 404)
+    return success_response(item)
+
+
+@app.route("/api/items/low-stock", methods=["GET"])
+def get_low_stock():
+    return success_response(inventory.get_low_stock_items())
+
+
+# ── Robots ─────────────────────────────────────────────────────────────────────
+@app.route("/api/robots", methods=["GET"])
+def get_robots():
+    return success_response({
+        "robots": fleet.all_robots_status(),
+        "summary": fleet.fleet_summary()
+    })
+
+
+@app.route("/api/robots/<robot_id>", methods=["GET"])
+def get_robot(robot_id: str):
+    robot = fleet.get_robot(robot_id)
+    if not robot:
+        return error_response(f"Robot '{robot_id}' not found", 404)
+    return success_response(robot.to_dict())
+
+
+@app.route("/api/robots/<robot_id>/charge", methods=["POST"])
+def charge_robot(robot_id: str):
+    robot = fleet.get_robot(robot_id)
+    if not robot:
+        return error_response(f"Robot '{robot_id}' not found", 404)
+    robot.charge(100.0)
+    return success_response(robot.to_dict(), "Robot charged to 100%")
+
+
+# ── Pathfinding ────────────────────────────────────────────────────────────────
+@app.route("/api/path", methods=["POST"])
+def find_path():
+    """
+    POST /api/path
+    Body: { "start": [x, y], "goal": [x, y] }
+    """
+    body = request.get_json(silent=True) or {}
+    start = body.get("start")
+    goal  = body.get("goal")
+
+    if not start or not goal or len(start) != 2 or len(goal) != 2:
+        return error_response("Provide 'start' and 'goal' as [x, y] arrays")
+
+    sx, sy = int(start[0]), int(start[1])
+    gx, gy = int(goal[0]),  int(goal[1])
+
+    path = pathfinder.find_path((sx, sy), (gx, gy))
+    if path is None:
+        return error_response("No path found between the given positions", 404)
+
+    return success_response({
+        "path": path,
+        "length": pathfinder.path_length(path),
+        "steps": len(path)
+    })
+
+
+# ── Route optimisation (TSP) ───────────────────────────────────────────────────
+@app.route("/api/route", methods=["POST"])
+def optimise_route():
+    """
+    POST /api/route
+    Body: { "start": [x, y], "stops": [[x1,y1], [x2,y2], ...] }
+    """
+    body  = request.get_json(silent=True) or {}
+    start = body.get("start")
+    stops = body.get("stops", [])
+
+    if not start or len(start) != 2:
+        return error_response("Provide 'start' as [x, y]")
+
+    start_t = (int(start[0]), int(start[1]))
+    stops_t = [(int(s[0]), int(s[1])) for s in stops]
+
+    result = solve_tsp(start_t, stops_t, improve=True)
+    return success_response(result)
+
+
+# ── Pick order ─────────────────────────────────────────────────────────────────
+@app.route("/api/pick", methods=["POST"])
+def create_pick_order():
+    """
+    POST /api/pick
+    Body: { "item_ids": ["ITM001", "ITM002"], "robot_id": "R1" (optional) }
+    Resolves item locations, optimises route, assigns nearest robot.
+    """
+    body     = request.get_json(silent=True) or {}
+    item_ids = body.get("item_ids", [])
+
+    if not item_ids:
+        return error_response("Provide at least one item_id in 'item_ids'")
+
+    # Resolve locations
+    stops = []
+    missing = []
+    for iid in item_ids:
+        shelf_id = inventory.get_item_location(iid)
+        if not shelf_id:
+            missing.append(iid)
+            continue
+        pos = layout.get_shelf_position(shelf_id)
+        if pos:
+            stops.append({"item_id": iid, "shelf_id": shelf_id, "position": list(pos)})
+
+    if missing:
+        return error_response(f"Items not found: {missing}", 404)
+
+    # Choose robot
+    robot_id = body.get("robot_id")
+    if robot_id:
+        robot = fleet.get_robot(robot_id)
     else:
-        # ── Built-in BFS / A* fallback ────────────────
-        path = _builtin_find_path(
-            grid_data,
-            tuple(req.start),
-            tuple(req.end),
-            req.algorithm,
-            req.allow_diagonal,
-        )
+        stop_positions = [s["position"] for s in stops]
+        cx = int(sum(p[0] for p in stop_positions) / len(stop_positions))
+        cy = int(sum(p[1] for p in stop_positions) / len(stop_positions))
+        robot = fleet.get_nearest_available_robot(cx, cy)
 
-    ms = round((time.perf_counter() - t0) * 1000, 2)
-    cost = len(path) - 1 if path else -1
+    if not robot:
+        return error_response("No available robot", 503)
 
-    return NavigateResponse(
-        path=path,
-        cost=cost,
-        algorithm=req.algorithm + ("-builtin" if USING_BUILTIN else ""),
-        compute_ms=ms,
-    )
+    # Optimise route
+    start_t = robot.position
+    stops_t = [tuple(s["position"]) for s in stops]
+    tsp     = solve_tsp(start_t, stops_t, improve=True)
 
-# ── BUILT-IN PATHFINDER (BFS + A*) ────────────────────
-from heapq import heappush, heappop
-from collections import deque
+    return success_response({
+        "robot": robot.to_dict(),
+        "stops": stops,
+        "optimised_route": tsp,
+        "total_distance": tsp["total_distance"]
+    })
 
-def _builtin_find_path(grid, start, end, algorithm="astar", allow_diagonal=False):
-    rows, cols = grid["rows"], grid["cols"]
-    obs = set(map(tuple, grid["obstacles"]))
 
-    dirs = [(-1,0),(1,0),(0,-1),(0,1)]
-    if allow_diagonal:
-        dirs += [(-1,-1),(-1,1),(1,-1),(1,1)]
-
-    def neighbours(r, c):
-        for dr, dc in dirs:
-            nr, nc = r+dr, c+dc
-            if 0 <= nr < rows and 0 <= nc < cols and (nr,nc) not in obs:
-                yield nr, nc
-
-    def reconstruct(parent, node):
-        path = []
-        while node is not None:
-            path.append(list(node))
-            node = parent[node]
-        return path[::-1]
-
-    if algorithm in ("astar",):
-        def h(r, c):
-            return abs(r-end[0]) + abs(c-end[1])
-        heap = [(h(*start), 0, start)]
-        g = {start: 0}
-        parent = {start: None}
-        while heap:
-            _, cost, cur = heappop(heap)
-            if cur == end:
-                return reconstruct(parent, end)
-            if cost > g.get(cur, float("inf")):
-                continue
-            for nb in neighbours(*cur):
-                nc = cost + 1
-                if nc < g.get(nb, float("inf")):
-                    g[nb] = nc
-                    parent[nb] = cur
-                    heappush(heap, (nc + h(*nb), nc, nb))
-        return []
-
-    elif algorithm == "dijkstra":
-        heap = [(0, start)]
-        dist = {start: 0}
-        parent = {start: None}
-        while heap:
-            cost, cur = heappop(heap)
-            if cur == end:
-                return reconstruct(parent, end)
-            for nb in neighbours(*cur):
-                nc = cost + 1
-                if nc < dist.get(nb, float("inf")):
-                    dist[nb] = nc
-                    parent[nb] = cur
-                    heappush(heap, (nc, nb))
-        return []
-
-    else:  # bfs
-        queue = deque([start])
-        parent = {start: None}
-        while queue:
-            cur = queue.popleft()
-            if cur == end:
-                return reconstruct(parent, end)
-            for nb in neighbours(*cur):
-                if nb not in parent:
-                    parent[nb] = cur
-                    queue.append(nb)
-        return []
+# ── Entry point ────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG)

@@ -1,9 +1,30 @@
+# render.yaml — Render.com deployment configuration for Speckit backend
+# Docs: https://render.com/docs/blueprint-spec
+
 services:
   - type: web
-    name: stylewarehouse-robot-api
-    env: python
-    buildCommand: pip install -r requirements-web.txt
-    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    name: speckit-api
+    runtime: python
+    region: singapore          # closest region for IN traffic; change if needed
+    plan: free                 # upgrade to starter/standard for production
+
+    # Build
+    buildCommand: pip install -r requirements.txt
+
+    # Start — gunicorn for production WSGI
+    startCommand: gunicorn server:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120
+
+    # Health check
+    healthCheckPath: /health
+
+    # Environment variables
+    # Set FRONTEND_URL to your Vercel URL in the Render dashboard
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: "3.11.0"
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: FRONTEND_URL
+        value: https://speckit.vercel.app
+      - key: PORT
+        generateValue: false    # Render injects PORT automatically

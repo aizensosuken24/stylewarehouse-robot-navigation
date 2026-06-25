@@ -1,10 +1,3 @@
-# StyleWarehouse Robot Navigation — Python dependencies
-# Core simulation runs with zero third-party dependencies.
-# pygame is optional (only needed for animated GUI visualisation).
-
-# Optional visualisation
-pygame>=2.5.0   # pip install pygame
-
-# Optional API layer (stretch goal)
-# fastapi>=0.110.0
-# uvicorn>=0.27.0
+flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0

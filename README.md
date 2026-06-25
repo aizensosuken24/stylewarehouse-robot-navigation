@@ -1,105 +1,116 @@
-# StyleWarehouse Robot Navigation — Web App
+# Speckit — Warehouse Robot System
 
-A warehouse path-planning dashboard with an interactive grid, obstacle editor, and A* / Dijkstra / BFS support.
-
-## File Structure
-
-```
-stylewarehouse-web/
-├── index.html          ← Frontend (deploy to Vercel / Netlify)
-├── style.css
-├── app.js
-├── server.py           ← FastAPI backend (deploy to Render / Railway)
-├── requirements-web.txt
-├── vercel.json         ← Vercel config
-├── netlify.toml        ← Netlify config
-└── render.yaml         ← Render.com config
-```
+A warehouse robot navigation and management system with:
+- **A\* pathfinding** for shortest-path routing
+- **TSP route optimisation** for multi-stop pick orders
+- **Fleet management** for multiple robots
+- **REST API** (Flask / Render)
+- **Dashboard frontend** (Vanilla JS / Vercel)
 
 ---
 
-## Step 1 — Deploy the Python Backend (Render.com — free tier)
+## Project Structure
 
-1. Push **all files** (including your existing `src/`, `data/`, etc.) to your GitLab repo.
-2. Go to [render.com](https://render.com) → **New Web Service** → connect your GitLab repo.
-3. Render auto-detects `render.yaml`. Click **Deploy**.
-4. Wait ~2 min. Copy the live URL, e.g. `https://stylewarehouse-robot-api.onrender.com`
-
-> **Connecting your own pathfinder:**  
-> `server.py` tries `from pathfinder import find_path` first.  
-> Make sure `src/pathfinder.py` exports `find_path(grid, start, end, algorithm, allow_diagonal) → List[List[int]]`.  
-> If it can't import, the built-in A*/BFS/Dijkstra fallback is used automatically.
-
----
-
-## Step 2 — Deploy the Frontend (Vercel)
-
-1. Go to [vercel.com](https://vercel.com) → **Add New Project** → import your repo.
-2. Set **Root Directory** to `stylewarehouse-web` (or wherever you put these files).
-3. Framework preset: **Other** (it's plain HTML/CSS/JS).
-4. Click **Deploy**. Done.
-
-### Or deploy to Netlify
-
-Drag and drop the `stylewarehouse-web/` folder onto [netlify.com/drop](https://app.netlify.com/drop).
-
----
-
-## Step 3 — Connect Frontend to Backend
-
-1. Open your deployed frontend URL.
-2. In the **Backend API** section, paste your Render URL.
-3. Click **Ping** — you should see "Backend online ✓".
-4. Now **Find Path** sends requests to your real Python backend.
-
-> **No backend yet?** The frontend has a built-in local BFS that runs in the browser — you can use the app immediately without a backend.
-
----
-
-## API Contract
-
-### `GET /health`
-```json
-{ "status": "ok", "builtin_pathfinder": false }
 ```
-
-### `POST /navigate`
-**Request:**
-```json
-{
-  "grid": {
-    "rows": 10,
-    "cols": 10,
-    "obstacles": [[2,3],[2,4],[2,5]]
-  },
-  "start": [0, 0],
-  "end": [9, 9],
-  "algorithm": "astar",
-  "allow_diagonal": false
-}
+Speckit/
+├── data/
+│   ├── item_catalogue.csv       # Product inventory
+│   └── warehouse_layout.json   # Grid map, shelves, zones, robots
+├── src/
+│   ├── navigation/
+│   │   ├── pathfinder.py        # A* algorithm
+│   │   └── tsp_solver.py        # TSP nearest-neighbour + 2-opt
+│   ├── robot/
+│   │   ├── robot.py             # Robot state & movement
+│   │   └── fleet.py             # Fleet manager
+│   ├── warehouse/
+│   │   └── warehouse.py         # Layout loader & inventory
+│   └── ui/
+│       └── responses.py         # Standardised JSON responses
+├── tests/
+│   ├── test_pathfinder.py
+│   ├── test_robot.py
+│   └── test_tsp.py
+├── web/
+│   ├── index.html               # Frontend SPA
+│   ├── style.css
+│   ├── app.js
+│   └── netlify.toml             # Alternative: Netlify deploy
+├── config.py                    # All configuration / env vars
+├── server.py                    # Flask API (Render entry point)
+├── main.py                      # Local dev entry point
+├── render.yaml                  # Render deployment blueprint
+├── vercel.json                  # Vercel deployment config
+├── requirements.txt             # Backend deps (Flask, gunicorn)
+├── requirements-web.txt         # Dev/test deps
+└── run_tests.sh                 # Test runner
 ```
-
-**Response:**
-```json
-{
-  "path": [[0,0],[1,0],[2,0],...,[9,9]],
-  "cost": 18,
-  "algorithm": "astar",
-  "compute_ms": 0.42
-}
-```
-
-Return `path: []` when no path exists.
 
 ---
 
 ## Local Development
 
 ```bash
-# Backend
-pip install -r requirements-web.txt
-uvicorn server:app --reload --port 8000
+# 1. Install dependencies
+pip install -r requirements.txt -r requirements-web.txt
 
-# Frontend — just open index.html in a browser
-# Or use: npx serve .
+# 2. Start API server
+python main.py
+# → http://localhost:5000
+
+# 3. Open frontend
+open web/index.html   # or serve via any static server
+```
+
+---
+
+## Deployment
+
+### Backend → Render
+
+1. Push this repo to GitHub.
+2. In [Render](https://render.com), create a **New Web Service** and connect the repo.
+3. Render auto-detects `render.yaml` — no extra config needed.
+4. After deploy, copy the Render service URL (e.g. `https://speckit-api.onrender.com`).
+5. Set the `FRONTEND_URL` environment variable in Render to your Vercel URL.
+
+### Frontend → Vercel
+
+1. In [Vercel](https://vercel.com), create a **New Project** and import the repo.
+2. Set **Root Directory** to `web` (or leave blank — `vercel.json` handles routing).
+3. Add an environment variable `ENV_API_URL` = your Render URL.
+4. Deploy. Done.
+
+> **CORS**: `config.py` reads `FRONTEND_URL` from the Render environment and adds it to `ALLOWED_ORIGINS`. Make sure the Render env var matches your Vercel URL exactly.
+
+---
+
+## API Reference
+
+| Method | Endpoint               | Description                          |
+|--------|------------------------|--------------------------------------|
+| GET    | `/health`              | Health check                         |
+| GET    | `/api/warehouse`       | Full warehouse layout                |
+| GET    | `/api/items`           | List items (supports `?q=` search)   |
+| GET    | `/api/items/<id>`      | Single item                          |
+| GET    | `/api/items/low-stock` | Items below reorder point            |
+| GET    | `/api/robots`          | All robots + fleet summary           |
+| GET    | `/api/robots/<id>`     | Single robot                         |
+| POST   | `/api/robots/<id>/charge` | Charge robot to 100%            |
+| POST   | `/api/path`            | A\* path: `{start:[x,y], goal:[x,y]}`|
+| POST   | `/api/route`           | TSP: `{start:[x,y], stops:[[x,y]…]}` |
+| POST   | `/api/pick`            | Pick order: `{item_ids:["ITM001"…]}` |
+
+---
+
+## Tests
+
+```bash
+bash run_tests.sh
+```
+
+Or directly:
+
+```bash
+pytest tests/ -v --cov=src
 ```

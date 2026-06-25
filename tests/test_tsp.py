@@ -1,67 +1,80 @@
-"""
-tests/test_tsp.py
-Unit tests for the TSP nearest-neighbour sequencer.
-"""
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+"""Tests for TSP solver."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import unittest
-from src.navigation.tsp import nearest_neighbour, two_opt_improve, sequence_order, total_route_distance
+import pytest
+from src.navigation.tsp_solver import (
+    solve_tsp,
+    nearest_neighbour_tsp,
+    two_opt_improve,
+    euclidean_distance
+)
 
 
-class TestNearestNeighbour(unittest.TestCase):
+class TestEuclideanDistance:
+    def test_same_point(self):
+        assert euclidean_distance((0, 0), (0, 0)) == 0.0
 
+    def test_horizontal(self):
+        assert euclidean_distance((0, 0), (3, 0)) == 3.0
+
+    def test_diagonal(self):
+        d = euclidean_distance((0, 0), (3, 4))
+        assert abs(d - 5.0) < 1e-9
+
+
+class TestNearestNeighbour:
     def test_empty_stops(self):
-        self.assertEqual(nearest_neighbour([], (0,0)), [])
+        assert nearest_neighbour_tsp((0, 0), []) == []
 
     def test_single_stop(self):
-        result = nearest_neighbour([(5,5)], (0,0))
-        self.assertEqual(result, [(5,5)])
+        route = nearest_neighbour_tsp((0, 0), [(5, 5)])
+        assert route == [(5, 5)]
 
     def test_visits_all_stops(self):
-        stops = [(1,1), (3,3), (2,8), (7,2)]
-        result = nearest_neighbour(stops, (0,0))
-        self.assertEqual(set(result), set(stops))
-        self.assertEqual(len(result), len(stops))
-
-    def test_nearest_first(self):
-        # (0,1) is closer to (0,0) than (5,5)
-        stops = [(5,5), (0,1)]
-        result = nearest_neighbour(stops, (0,0))
-        self.assertEqual(result[0], (0,1))
+        stops = [(1, 0), (5, 5), (9, 9), (3, 3)]
+        route = nearest_neighbour_tsp((0, 0), stops)
+        assert set(route) == set(stops)
+        assert len(route) == len(stops)
 
 
-class TestTwoOpt(unittest.TestCase):
+class TestSolveTSP:
+    def test_empty_stops(self):
+        result = solve_tsp((0, 0), [])
+        assert result["num_stops"] == 0
+        assert result["total_distance"] == 0.0
 
-    def test_does_not_add_stops(self):
-        stops = [(1,1), (3,3), (2,8), (7,2)]
-        route = nearest_neighbour(stops, (0,0))
-        improved = two_opt_improve(route, (0,0))
-        self.assertEqual(set(improved), set(stops))
+    def test_single_stop(self):
+        result = solve_tsp((0, 0), [(5, 0)])
+        assert result["num_stops"] == 1
+        assert result["total_distance"] == 10.0  # 0→5→0
 
-    def test_same_or_shorter_distance(self):
-        stops = [(0,9), (9,0), (5,5), (1,8), (8,1)]
-        route = nearest_neighbour(stops, (0,0))
-        improved = two_opt_improve(route, (0,0))
-        from src.navigation.tsp import _total_distance, manhattan
-        d_before = _total_distance([(0,0)] + route)
-        d_after  = _total_distance([(0,0)] + improved)
-        self.assertLessEqual(d_after, d_before + 1)  # +1 tolerance for ties
+    def test_multiple_stops(self):
+        stops = [(2, 0), (4, 0), (6, 0), (8, 0)]
+        result = solve_tsp((0, 0), stops)
+        assert result["num_stops"] == 4
+        assert result["total_distance"] > 0
+        assert len(result["route"]) == 4
 
+    def test_all_stops_visited(self):
+        stops = [(1, 1), (5, 5), (9, 1), (3, 8)]
+        result = solve_tsp((0, 0), stops)
+        assert set(map(tuple, result["route"])) == set(stops)
 
-class TestSequenceOrder(unittest.TestCase):
+    def test_distance_positive(self):
+        stops = [(1, 0), (2, 0), (3, 0)]
+        result = solve_tsp((0, 0), stops, improve=False)
+        assert result["total_distance"] > 0
 
-    def test_returns_all_stops(self):
-        stops = [(2,3), (7,8), (1,9)]
-        seq = sequence_order(stops, (0,0))
-        self.assertEqual(set(seq), set(stops))
+    def test_improve_does_not_increase_distance(self):
+        stops = [(9, 0), (0, 9), (9, 9), (0, 0), (5, 5)]
+        r_no  = solve_tsp((0, 0), stops, improve=False)
+        r_yes = solve_tsp((0, 0), stops, improve=True)
+        assert r_yes["total_distance"] <= r_no["total_distance"] + 1e-6
 
-    def test_total_distance(self):
-        stops = [(2,0), (4,0), (6,0)]  # collinear — optimal is sequential
-        seq = sequence_order(stops, (0,0))
-        d = total_route_distance(seq, (0,0), (0,0))
-        self.assertGreater(d, 0)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_two_opt_closed_loop_optimization(self):
+        stops = [(9, 0), (0, 9), (9, 9), (0, 0), (5, 5)]
+        r_no = solve_tsp((0, 0), stops, improve=False)
+        r_yes = solve_tsp((0, 0), stops, improve=True)
+        assert r_yes["total_distance"] < r_no["total_distance"]
